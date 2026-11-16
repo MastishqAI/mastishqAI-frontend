@@ -1,16 +1,19 @@
+import { INDIA, STATES } from "../data/india.js";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../auth.jsx";
 import { Icon } from "../components/icons.jsx";
 
-function Shell({ step, children }) {
+// A learner who is already signed in (for example via Google) skips the account step, so they see "Step 1 of 3", not "Step 2 of 4".
+function Shell({ step, signedIn, children }) {
+  const total = signedIn ? 3 : 4, shown = signedIn ? step - 1 : step;
   return (
     <div className="auth-bg">
       <div className="onb-card">
         <div className="bar-track" />
-        <div className="bar" style={{ width: `${step * 25}%` }} />
-        <span className="step-pill">STEP {step} OF 4</span>
+        <div className="bar" style={{ width: `${(shown / total) * 100}%` }} />
+        <span className="step-pill">STEP {shown} OF {total}</span>
         {children}
       </div>
     </div>
@@ -23,7 +26,7 @@ const Pw = ({ label, value, onChange }) => {
     <div className="field">
       <label>{label}</label>
       <div className="input-wrap">
-        <input className="input fill" type={show ? "text" : "password"} value={value} onChange={onChange} />
+        <input className="input fill" type={show ? "text" : "password"} autoComplete="new-password" value={value} onChange={onChange} />
         <button type="button" className="icon-btn" onClick={() => setShow(!show)} aria-label="Toggle password">
           {show ? <Icon.eye size={18} /> : <Icon.eyeOff size={18} />}
         </button>
@@ -35,7 +38,9 @@ const Pw = ({ label, value, onChange }) => {
 const FALLBACK_GOALS = [];
 
 export default function Onboarding() {
-  const { user, register, refresh } = useAuth();
+  const { user, register, refresh, logout } = useAuth();
+  // step 1 (account creation) is already done for a signed-in learner, so Back leaves the sign-up: sign out and return to login
+  const backToLogin = async () => { try { await logout(); } finally { nav("/login"); } };
   const nav = useNavigate();
   const [step, setStep] = useState(user ? 2 : 1);
   const [err, setErr] = useState("");
@@ -49,6 +54,8 @@ export default function Onboarding() {
   const [picked, setPicked] = useState([]);
   const [custom, setCustom] = useState("");
   const [finishing, setFinishing] = useState(false);
+  const [otherDistrict, setOtherDistrict] = useState(false);
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [step]);   // a shorter step must not stay scrolled down (looked like Back did nothing)
 
   useEffect(() => {
     if (!user) return;
@@ -84,7 +91,7 @@ export default function Onboarding() {
 
   if (step === 1)
     return (
-      <Shell step={1}>
+      <Shell key="step1" step={1}>
         <h1 style={{ marginTop: 28 }}>Personal Information</h1>
         <p className="desc">Please provide accurate details to personalize your experience.</p>
         <form onSubmit={step1}>
@@ -111,27 +118,43 @@ export default function Onboarding() {
 
   if (step === 2)
     return (
-      <Shell step={2}>
+      <Shell key="step2" step={2} signedIn={!!user}>
         <h1 style={{ marginTop: 28 }}>Academic Details</h1>
         <p className="desc">Please provide accurate details to personalize your experience.</p>
         <form onSubmit={step2}>
           <div className="field"><label>School Or College Name</label><input className="input" placeholder="e.g. Delhi Public School / IIT Bombay" value={b.school} onChange={(e) => setB({ ...b, school: e.target.value })} required /></div>
           <div className="field"><label>Standard Or Course</label><input className="input" placeholder="10th / B.tech Computer Science" value={b.className} onChange={(e) => setB({ ...b, className: e.target.value })} required /></div>
           <div className="two">
-            <div className="field"><label>District</label><input className="input" placeholder="e.g. Lucknow" value={b.district} onChange={(e) => setB({ ...b, district: e.target.value })} /></div>
-            <div className="field"><label>State</label><input className="input" placeholder="e.g. Uttar Pradesh" value={b.state} onChange={(e) => setB({ ...b, state: e.target.value })} /></div>
+            <div className="field"><label>State</label>
+              <select className="input" value={b.state} onChange={(e) => { setB({ ...b, state: e.target.value, district: "" }); setOtherDistrict(false); }} required>
+                <option value="">Select state</option>
+                {STATES.map((st) => <option key={st}>{st}</option>)}
+              </select>
+            </div>
+            <div className="field"><label>District</label>
+              {otherDistrict
+                ? <input className="input" placeholder="Type your district" value={b.district} onChange={(e) => setB({ ...b, district: e.target.value })} required autoFocus />
+                : (
+                  <select className="input" value={b.district} disabled={!b.state} required
+                    onChange={(e) => (e.target.value === "__other" ? (setOtherDistrict(true), setB({ ...b, district: "" })) : setB({ ...b, district: e.target.value }))}>
+                    <option value="">{b.state ? "Select district" : "Select state first"}</option>
+                    {(INDIA[b.state] || []).map((dn) => <option key={dn}>{dn}</option>)}
+                    {b.state && <option value="__other">My district isn't listed…</option>}
+                  </select>
+                )}
+            </div>
           </div>
           <div className="field"><label>Pin Code</label><input className="input" placeholder="400001" inputMode="numeric" value={b.pincode} onChange={(e) => setB({ ...b, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></div>
           {err && <div className="error">{err}</div>}
           <button className="btn block" disabled={busy}>Next</button>
-          <button type="button" className="btn block outline" style={{ marginTop: 14, color: "var(--gray-600)" }} onClick={() => setStep(1)} disabled={!!user}>Back</button>
+          <button type="button" className="btn block outline" style={{ marginTop: 14, color: "var(--gray-600)" }} onClick={() => (user ? backToLogin() : setStep(1))}>Back</button>
         </form>
       </Shell>
     );
 
   if (step === 3)
     return (
-      <Shell step={3}>
+      <Shell key="step3" step={3} signedIn={!!user}>
         <h1 style={{ marginTop: 28 }}>What are your goals?</h1>
         <p className="desc">We'll tailor your content and quizzes around this</p>
         <form onSubmit={step3}>
@@ -157,7 +180,7 @@ export default function Onboarding() {
     );
 
   return (
-    <Shell step={4}>
+    <Shell key="step4" step={4} signedIn={!!user}>
       <h1 style={{ marginTop: 28 }}>Pick Your Subjects</h1>
       <p className="desc">Choose as many as you like</p>
       <form onSubmit={step4}>

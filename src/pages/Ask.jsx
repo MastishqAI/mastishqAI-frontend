@@ -4,6 +4,7 @@ import api from "../api";
 import { useAuth } from "../auth.jsx";
 import { useGet } from "../hooks";
 import { Icon } from "../components/icons.jsx";
+import { buyPro } from "../upgrade.js";
 
 const SUGGEST = ["Explain Newton's Laws of Motion", "Solve this algebra quadratic equation", "Summarize cellular respiration in biology", "Help me understand photosynthesis step-by-step"];
 
@@ -19,7 +20,7 @@ function group(list) {
 }
 
 export default function Ask() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
   const list = useGet("/ai/conversations");
@@ -31,6 +32,18 @@ export default function Ask() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [note, setNote] = useState("");
+  const [paying, setPaying] = useState(false);
+  const { data: payCfg } = useGet("/payments/config");
+  const isPro = user?.plan === "pro";
+  const upgrade = async () => {
+    if (paying) return;
+    setPaying(true); setNote("");
+    try {
+      const r = await buyPro(user);
+      if (r) { await refresh?.(); setNote("You're Pro now. Thank you!"); }
+    } catch (e) { setNote(e.message); }
+    finally { setPaying(false); }
+  };
   const endRef = useRef(null);
   const sent = useRef(false);
 
@@ -87,11 +100,11 @@ export default function Ask() {
           {!filtered.length && <p style={{ fontSize: 12, color: "var(--gray-500)", marginTop: 16 }}>No chats yet.</p>}
         </div>
         <div className="upgrade">
-          <div className="t">Upgrade Plan <span className="pro">Pro</span></div>
-          <p>Unlock advanced features, unlimited weak-spot sets and solution PDFs.</p>
-          <div className="price">₹49 <small>/ month</small></div>
-          <button className="btn" onClick={() => setNote("Paid plans are coming soon.")}>Upgrade now →</button>
-          <em>{note || "No commitment. Cancel anytime."}</em>
+          <div className="t">Upgrade Plan <span className="pro">{isPro ? "Active" : "Pro"}</span></div>
+          <p>{isPro ? `Pro is active until ${new Date(user.planExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. Pay again to add ${payCfg?.days || 30} more days.` : "Unlock advanced features, unlimited weak-spot sets and solution PDFs."}</p>
+          <div className="price">₹{payCfg?.amount ?? 49} <small>/ {payCfg?.days || 30} days</small></div>
+          <button className="btn" disabled={paying || (payCfg && !payCfg.enabled)} onClick={upgrade}>{paying ? "Opening payment…" : isPro ? "Extend Pro →" : "Upgrade now →"}</button>
+          <em>{note || (payCfg && !payCfg.enabled ? "Payments are not available yet." : "One-time payment. No auto-renewal.")}</em>
         </div>
         <div className="me-row"><span className="avatar" style={{ width: 40, height: 40 }}>{initials}</span><div><b>{user?.name}</b><small>{(user?.goalName || "Learner").split(" ")[0]}</small></div><button aria-label="More">•••</button></div>
       </aside>

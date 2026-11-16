@@ -97,7 +97,7 @@ export function Login() {
             <label style={{ margin: "0 0 0 4px", fontSize: 13, fontWeight: 500, color: "var(--gray-700)" }}>Password</label>
             <Link to="/forgot-password" style={{ color: "var(--gray-900)", fontSize: 13, fontWeight: 600 }}>Forget Password?</Link>
           </div>
-          <input className="input pill" type="password" placeholder="Enter Your Password Here" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
+          <input className="input pill" type="password" autoComplete="current-password" placeholder="Enter Your Password Here" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
         </div>
         <label className="terms">
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
@@ -197,11 +197,11 @@ export function ResetPassword() {
       <form onSubmit={submit}>
         <div className="field">
           <label>New Password</label>
-          <input className="input" type="password" placeholder="Enter New Password" value={f.p1} onChange={(e) => setF({ ...f, p1: e.target.value })} required />
+          <input className="input" type="password" autoComplete="new-password" placeholder="Enter New Password" value={f.p1} onChange={(e) => setF({ ...f, p1: e.target.value })} required />
         </div>
         <div className="field">
           <label>Confirm Password</label>
-          <input className="input" type="password" placeholder="Confirm New Password" value={f.p2} onChange={(e) => setF({ ...f, p2: e.target.value })} required />
+          <input className="input" type="password" autoComplete="new-password" placeholder="Confirm New Password" value={f.p2} onChange={(e) => setF({ ...f, p2: e.target.value })} required />
         </div>
         {err && <div className="error">{err}</div>}
         <button className="btn block">Reset password</button>

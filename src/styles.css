@@ -478,3 +478,10 @@ table.lb { width: 100%; border-collapse: collapse; }
 .src-toggle input:focus-visible + .sw { box-shadow: 0 0 0 3px var(--blue-100); }
 .src-toggle small { color: var(--gray-400); }
 .bub-ai .src-note { margin-top: 12px; font-size: 12px; color: var(--amber-700); background: var(--amber-50); padding: 8px 12px; border-radius: 10px; white-space: normal; }
+
+/* dropdowns styled like the text inputs */
+select.input { appearance: none; -webkit-appearance: none; padding-right: 44px; cursor: pointer;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 18px center; }
+select.input:disabled { background-color: var(--gray-50, #F8F9FB); color: #B8BEC8; cursor: not-allowed; }
+select.input:invalid { color: #B8BEC8; }
+select.input option { color: var(--gray-900); }
