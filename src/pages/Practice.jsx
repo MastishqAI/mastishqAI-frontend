@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useGet } from "../hooks";
 import { Icon } from "../components/icons.jsx";
+import Attachments from "../components/Attachments.jsx";
 
 const STAGE_INFO = [
   ["easy", "Easy", "10 questions · 2 pts each", "Score 14 / 20 to pass"],
@@ -20,7 +21,7 @@ export default function Practice() {
   const [secs, setSecs] = useState(60);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [note, setNote] = useState("");
+  const [files, setFiles] = useState([]);
 
   const editGoal = async () => {
     const v = window.prompt("Daily goal for practice questions", daily.data?.goal ?? 10);
@@ -29,10 +30,10 @@ export default function Practice() {
   };
 
   const generate = async () => {
-    if (!topic.trim()) return setErr("Please enter a topic name.");
+    if (!topic.trim() && !files.length) return setErr("Please enter a topic name or add a file.");
     setErr(""); setBusy(true);
     try {
-      const p = await api.post("/practice", { topic, description: desc, secondsPerQuestion: secs });
+      const p = await api.post("/practice", { topic, description: desc, secondsPerQuestion: secs, materialIds: files.map((f) => f.id) });
       const s = await api.post(`/practice/${p.practice.id}/stages/easy/start`);
       nav(`/quiz/${s.attempt.id}`);
     } catch (e) { setErr(e.message); setBusy(false); }
@@ -57,7 +58,7 @@ export default function Practice() {
         <div className="card main">
           <h2>What do you want to practise?</h2>
           <label className="lbl first">Topic Name</label>
-          <input className="pr-input" value={topic} placeholder="e.g. Fundamental Rights (Articles 12–35)" onChange={(e) => setTopic(e.target.value)} />
+          <input className="pr-input" value={topic} placeholder={files.length ? "Optional: we'll use your file's name" : "e.g. Fundamental Rights (Articles 12–35)"} onChange={(e) => setTopic(e.target.value)} />
           {recs.data?.topics?.length > 0 && (
             <div className="recs">
               <span>Recommended from your weak spots</span>
@@ -67,11 +68,7 @@ export default function Practice() {
           <label className="lbl">Description</label>
           <textarea className="pr-area" placeholder="e.g. Writs, Article 21 cases" value={desc} onChange={(e) => setDesc(e.target.value)} />
           <div className="or-line">or use your own material</div>
-          <div className="drops">
-            <div className="drop" role="button" onClick={() => setNote("Uploading your own material is coming soon.")}><b>Upload file</b><span>PDF · JPG · PNG</span></div>
-            <div className="drop" role="button" onClick={() => setNote("Page scanning is coming soon.")}><b>Scan a page</b><span>Use your camera</span></div>
-          </div>
-          {note && <p style={{ fontSize: 12, color: "var(--gray-500)", marginTop: 12 }}>{note}</p>}
+          <Attachments files={files} setFiles={setFiles} onError={setErr} />
         </div>
 
         <div className="card main" style={{ padding: 24 }}>
