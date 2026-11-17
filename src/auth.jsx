@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useState } from "react";
 import api, { onSession, refreshSession, setToken } from "./api";
 
 const Ctx = createContext(null);
+
+// An invite link (/signup?ref=CODE) is remembered until the visitor signs up
+const savedRef = () => { try { return localStorage.getItem("ref") || undefined; } catch { return undefined; } };
+try { const r = new URLSearchParams(window.location.search).get("ref"); if (r && /^[A-Za-z0-9]{6,12}$/.test(r)) localStorage.setItem("ref", r); } catch { /* storage may be blocked */ }
 export const useAuth = () => useContext(Ctx);
 
 export function AuthProvider({ children }) {
@@ -25,8 +29,8 @@ export function AuthProvider({ children }) {
   };
   const finish = (r) => { setToken(r.token); setUser(r.user); return r.user; };
   const login = async (email, password) => finish(await api.post("/auth/login", { email, password }));
-  const google = async (credential) => finish(await api.post("/auth/google", { credential }));
-  const register = async (body) => finish(await api.post("/auth/register", body));
+  const google = async (credential) => finish(await api.post("/auth/google", { credential, ref: savedRef() }));
+  const register = async (body) => finish(await api.post("/auth/register", { ...body, ref: savedRef() }));
   const logout = async () => {
     try { await api.post("/auth/logout"); } catch {}
     setToken(null);

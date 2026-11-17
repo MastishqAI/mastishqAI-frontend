@@ -2,6 +2,9 @@
 // DRAFT: have a lawyer review the Privacy Policy and Terms before launch (see the bracketed [placeholders]).
 
 export const SUPPORT_EMAIL = "support@mastishq.ai";
+// Shown on the Profile page under "Help & support". Rows with an empty value are hidden, so fill these in with your REAL
+// registered details before launch (the Figma design uses placeholder values).
+export const COMPANY = { name: "", address: "", phone: "" };
 export const LAST_UPDATED = "10 November 2026";
 
 export const PAGES = {

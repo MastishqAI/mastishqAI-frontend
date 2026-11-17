@@ -74,11 +74,12 @@ export function TopNav() {
         <div className="pts-chip"><Icon.bolt size={15} /> Lvl {d?.level ?? 0}<i /><b>{(d?.points ?? 0).toLocaleString()} pts</b></div>
         <div ref={ref} style={{ position: "relative" }}>
           <button className="menu-wrap" onClick={() => setOpen(!open)} aria-label="Account menu">
-            <span className="avatar">{initials}</span><Icon.chevDown size={16} style={{ color: "#6B7280" }} />
+            <span className="avatar" style={user?.picture ? { backgroundImage: `url(${user.picture})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}>{initials}</span><Icon.chevDown size={16} style={{ color: "#6B7280" }} />
           </button>
           {open && (
             <div className="menu">
               <div className="who">{user?.email}</div>
+              <Link to="/profile" onClick={() => setOpen(false)}>Profile</Link>
               <Link to="/progress" onClick={() => setOpen(false)}>My progress</Link>
               <Link to="/notifications" onClick={() => setOpen(false)}>Notifications</Link>
               <Link to="/support" onClick={() => setOpen(false)}>Help &amp; Support</Link>

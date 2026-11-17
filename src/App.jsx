@@ -14,6 +14,7 @@ import Ask from "./pages/Ask.jsx";
 import Notifications from "./pages/Notifications.jsx";
 import Legal from "./pages/Legal.jsx";
 import Support from "./pages/Support.jsx";
+import Profile from "./pages/Profile.jsx";
 
 function Protected() {
   const { user, loading } = useAuth();
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/ask" element={<Ask />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/support" element={<Support />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
