@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api";
 import { Stepper } from "../components/ui.jsx";
+import TopicCleared from "./TopicCleared.jsx";
 import { Icon } from "../components/icons.jsx";
 
 const Delta = ({ from, to, unit = "", lowerBetter = false, pct = false }) => {
@@ -63,6 +64,7 @@ export default function Result() {
   }
 
   const cleared = r.cleared;
+  if (cleared && !r.nextStage && r.practiceId) return <TopicCleared practiceId={r.practiceId} />;   // all three stages done
   const current = cleared ? r.nextStage || r.stage : r.stage;
   const stages = { ...r.stages };
   const lostLabel = r.marksLost.length === 1 ? "so this is very fixable" : "";
@@ -86,7 +88,7 @@ export default function Result() {
                 ? `You scored ${r.score} of ${r.maxScore}. ${r.nextStageLabel ? `${r.nextStageLabel} is unlocked. ` : "You've cleared every stage of this topic. "}${r.marksLostTotal ? `Fix the ${r.marksLostTotal} lost marks now so they don't follow you to the next stage.` : ""}`
                 : `You scored ${r.score} of ${r.maxScore} and need ${r.passMark} to clear ${r.stageLabel}.${mostTopic ? ` Most lost marks come from ${r.marksLost.length > 1 ? "a few topics" : "one topic"}, so this is very fixable.` : ""}`}
             </p>
-            {r.earned > 0 && <p style={{ fontSize: 12, color: "var(--gray-600)", marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}><i style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--amber-500)" }} />{r.badge ? `You earned the ${r.badge} badge · ` : "You earned "}+{r.earned} pts</p>}
+            {cleared && r.earned > 0 && <p style={{ fontSize: 12, color: "var(--gray-600)", marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}><i style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--amber-500)" }} />{r.badge ? `You earned the ${r.badge} badge · ` : "You earned "}+{r.earned} pts</p>}
           </div>
         </div>
 

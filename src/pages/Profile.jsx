@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api, { setToken } from "../api";
 import { useAuth } from "../auth.jsx";
 import { useGet } from "../hooks";
-import { buyPro } from "../upgrade.js";
 import { COMPANY, SUPPORT_EMAIL } from "../legalContent.js";
 
 const shortDate = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -182,14 +181,8 @@ function Account({ p }) {
 }
 
 /* ---- active plan ---- */
-function Plan({ p, onPaid }) {
-  const { user } = useAuth();
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const pay = async () => {
-    setBusy(true); setMsg("");
-    try { const r = await buyPro(user); if (r) { await onPaid(); setMsg("Pro is active. Thank you!"); } } catch (e) { setMsg(e.message); } finally { setBusy(false); }
-  };
+function Plan({ p }) {
+  const nav = useNavigate();
   const pl = p.plan;
   return (
     <section className="pf-card">
@@ -213,8 +206,7 @@ function Plan({ p, onPaid }) {
       </div>
       {pl.active && <div className="pf-valid"><span>Validity</span><span>{pl.pctLeft}%</span></div>}
       {pl.active && <i className="pf-track"><u style={{ width: `${pl.pctLeft}%` }} /></i>}
-      {msg && <p className="pf-help" style={{ marginTop: 10 }}>{msg}</p>}
-      <div className="pf-end"><button type="button" className="pf-primary" disabled={busy} onClick={pay}>{busy ? "Opening payment…" : pl.active ? "Manage Plan" : "Upgrade to Pro"}</button></div>
+      <div className="pf-end"><button type="button" className="pf-primary" onClick={() => nav("/plans")}>{pl.active ? "Manage Plan" : "Upgrade to Pro"}</button></div>
     </section>
   );
 }
@@ -325,7 +317,7 @@ export default function Profile() {
       </section>
       <Goals key={`${p.goalName}|${p.subjects.join(",")}`} p={p} onSaved={reload} />
       <Account p={p} />
-      <Plan p={p} onPaid={reload} />
+      <Plan p={p} />
       <YourData p={p} />
       <Invite p={p} />
       <Help />

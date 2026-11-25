@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../auth.jsx";
 import { useGet } from "../hooks";
@@ -86,12 +86,15 @@ function Board() {
 }
 
 export default function Progress() {
-  const [tab, setTab] = useState("stand");
+  // the tab lives in the URL (?tab=best) so it can be linked, refreshed and reached with Back
+  const [params, setParams] = useSearchParams();
+  const tab = ["stand", "best", "levels"].includes(params.get("tab")) ? params.get("tab") : "stand";
+  const setTab = (k) => setParams(k === "stand" ? {} : { tab: k });
   return (
     <div className="container wide" style={{ maxWidth: 1136 }}>
-      <div className="tabs">
-        {[["stand", "Where I stand"], ["best", "My best"], ["levels", "Levels"]].map(([k, l]) => (
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>
+      <div className="tabs" role="tablist">
+        {[["stand", "Where I stand"], ["best", "My best"], ["levels", "Levels & badges"]].map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       {tab === "stand" && <Board />}

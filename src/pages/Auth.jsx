@@ -50,65 +50,61 @@ function GoogleButton({ onToken, onError }) {
 
   return (
     <div style={{ position: "relative" }}>
-      <button className="google" type="button" onClick={() => !ready && onError?.("Google sign-in isn't available right now — use your email and password.")}>
+      <button className="google" type="button" onClick={() => !ready && onError?.("Google sign-in isn't available right now. Please try again in a moment.")}>
         <GoogleG /> Continue With Google
       </button>
-      <div ref={overlay} style={{ position: "absolute", inset: 0, opacity: 0.0001, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer" }} />
+      <div ref={overlay} className="gsi" style={{ position: "absolute", inset: 0, opacity: 0.0001, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer" }} />
     </div>
   );
 }
 
 export function Login() {
-  const { user, login, google } = useAuth();
+  const { user, google } = useAuth();
   const nav = useNavigate();
-  const [f, setF] = useState({ email: "", password: "" });
-  const [agree, setAgree] = useState(false);
   const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/" replace />;
 
+  // One Google entry point for both sign-in and sign-up; new learners are sent on to onboarding for the remaining details
   const googleSignIn = async (credential) => {
     setErr("");
     try { const u = await google(credential); nav(u.role === "student" && !u.onboarded ? "/onboarding" : "/"); }
     catch (e2) { setErr(e2.message); }
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setErr("");
-    if (!agree) return setErr("Please accept the Terms of Service and Privacy Policy to continue.");
-    setBusy(true);
-    try {
-      const u = await login(f.email, f.password);
-      nav(u.role === "student" && !u.onboarded ? "/onboarding" : "/");
-    } catch (e2) { setErr(e2.message); } finally { setBusy(false); }
-  };
-
   return (
-    <Card>
-      <p className="tag">Make every lesson count with AI-powered education.</p>
-      <form onSubmit={submit}>
-        <div className="field">
-          <label>Email</label>
-          <input className="input pill" type="email" placeholder="e.g akash@gmail.com" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
-        </div>
-        <div className="field">
-          <div className="row-between" style={{ marginBottom: 6 }}>
-            <label style={{ margin: "0 0 0 4px", fontSize: 13, fontWeight: 500, color: "var(--gray-700)" }}>Password</label>
-            <Link to="/forgot-password" style={{ color: "var(--gray-900)", fontSize: 13, fontWeight: 600 }}>Forget Password?</Link>
+    <div className="login-split">
+      <section className="login-art" aria-hidden="true">
+        <span className="eyebrow-chip">AI exam prep for every aspirant</span>
+        <h2>Practice smarter.<br />Crack your exam.</h2>
+        <p>Adaptive quizzes, instant doubt-solving with AI and a Mistake Bank that turns every wrong answer into marks.</p>
+        <div className="art-stage">
+          <img className="student" src="/login-learner-3d.png" alt="" width="560" height="560" />
+          <div className="art-card acc">
+            <span className="lab">Weekly accuracy <em>+12%</em></span>
+            <b>82%</b>
+            <div className="bars">{[16, 22, 20, 30, 26, 36, 44].map((h, i) => <i key={i} className={i < 2 ? "lt" : ""} style={{ height: h }} />)}</div>
           </div>
-          <input className="input pill" type="password" autoComplete="current-password" placeholder="Enter Your Password Here" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required />
+          <div className="art-card ai">
+            <div className="who"><span className="av">AI</span><div><b>Mastishq AI</b><small>Your study mentor</small></div></div>
+            <p>Right! Speed = distance ÷ time. Want a similar question to lock it in?</p>
+            <div className="acts"><span className="pri">Practice similar</span><span>Explain</span></div>
+          </div>
+          <div className="art-card mini mb"><span className="ico red">12</span><div><b>Mistake Bank</b><small>12 questions to fix</small></div></div>
+          <div className="art-card mini st"><span className="ico orange"><i /></span><div><b>7-day streak</b><small>Keep it going</small></div></div>
         </div>
-        <label className="terms">
-          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-          <span>By continuing, you agree to our <a href="/legal/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a></span>
-        </label>
-        {err && <div className="error">{err}</div>}
-        <button className="btn block pill" disabled={busy} style={{ fontSize: 17 }}>{busy ? "Logging in…" : "Login"}</button>
-      </form>
-      <div className="divider"><Link to="/signup" style={{ color: "var(--gray-600)", fontWeight: 400 }}>Create an account and Sign in</Link></div>
-      <GoogleButton onToken={googleSignIn} onError={setErr} />
-    </Card>
+        <ul>{["10-minute diagnostic", "Adaptive practice", "Instant AI doubt-solving"].map((t) => <li key={t}>{t}</li>)}</ul>
+      </section>
+      <main className="login-side">
+        <div className="login-card">
+          <Logo stack size={36} text={32} />
+          <p className="tag2">Make every lesson count with AI-powered education.</p>
+          <p className="help2">Sign in or create your account in one tap.</p>
+          {err && <div className="error" role="alert">{err}</div>}
+          <GoogleButton onToken={googleSignIn} onError={setErr} />
+          <p className="terms2">By continuing, you agree to our <a href="/legal/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a></p>
+        </div>
+      </main>
+    </div>
   );
 }
 

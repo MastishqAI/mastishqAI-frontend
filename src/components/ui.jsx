@@ -48,12 +48,15 @@ export function Footer() {
   );
 }
 
+const MAIN_TABS = [["/", "Today"], ["/practice", "Practice"], ["/mistakes", "Mistakes"], ["/progress", "Progress"], ["/ask", "Ask AI"]];
+
 export function TopNav() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const { pathname } = useLocation();
   const home = useGet(`/home?r=${encodeURIComponent(pathname)}`); // refetch points when the page changes
   const [open, setOpen] = useState(false);
+  const [confirmOut, setConfirmOut] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -63,11 +66,11 @@ export function TopNav() {
   const initials = (user?.name || "?").split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
   const d = home.data;
   return (
-    <header className="topnav">
+    <header className={`topnav${pathname === "/" ? " home" : ""}`}>
       <Logo size={26} text={21} to="/" />
       <nav>
-        {[["/", "Today"], ["/practice", "Practice"], ["/mistakes", "Mistakes"], ["/progress", "Progress"], ["/ask", "Ask AI"]].map(([to, l]) => (
-          <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => (isActive ? "active" : "")}>{l}</NavLink>
+        {MAIN_TABS.map(([to, l]) => (
+          <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => (isActive || (to === "/practice" && /^\/(quiz|result|review)\//.test(pathname)) ? "active" : "")}>{l}</NavLink>
         ))}
       </nav>
       <div className="right">
@@ -79,17 +82,30 @@ export function TopNav() {
           {open && (
             <div className="menu">
               <div className="who">{user?.email}</div>
-              <Link to="/profile" onClick={() => setOpen(false)}>Profile</Link>
-              <Link to="/progress" onClick={() => setOpen(false)}>My progress</Link>
-              <Link to="/notifications" onClick={() => setOpen(false)}>Notifications</Link>
-              <Link to="/support" onClick={() => setOpen(false)}>Help &amp; Support</Link>
-              <Link to="/legal/privacy" onClick={() => setOpen(false)}>Privacy Policy</Link>
-              <Link to="/legal/terms" onClick={() => setOpen(false)}>Terms of Service</Link>
-              <button onClick={async () => { await logout(); nav("/login"); }}>Log out</button>
+              <div className="mobile-tabs">
+                {MAIN_TABS.map(([to, l]) => <Link key={to} to={to} onClick={() => setOpen(false)}>{l}</Link>)}
+              </div>
+              {user?.plan !== "pro" && <Link to="/plans" className="upgrade-item" onClick={() => setOpen(false)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" /><path d="M2 9h20" /></svg>Upgrade to Pro</Link>}
+              <Link to="/profile" onClick={() => setOpen(false)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>Profile</Link>
+              <Link to="/notifications" onClick={() => setOpen(false)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>Notifications</Link>
+              <Link to="/support" onClick={() => setOpen(false)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7" /><path d="M12 17h.01" /></svg>Help &amp; Support</Link>
+              <button className="logout" onClick={() => { setOpen(false); setConfirmOut(true); }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>Logout</button>
             </div>
           )}
         </div>
       </div>
+      {confirmOut && (
+        <div className="modal-bg" role="dialog" aria-modal="true" aria-labelledby="out-title" onClick={() => setConfirmOut(false)}>
+          <div className="modal fig out" onClick={(e) => e.stopPropagation()}>
+            <div className="mh bordered"><h3 id="out-title">Logout</h3><button type="button" className="mx" aria-label="Close" onClick={() => setConfirmOut(false)}>×</button></div>
+            <div className="mb">
+              <h4>Are you sure you want to log out?</h4>
+              <p>You will be signed out of your account on this device.</p>
+              <div className="duo"><button type="button" className="cancel" autoFocus onClick={() => setConfirmOut(false)}>Cancel</button><button type="button" className="go" onClick={async () => { await logout(); nav("/login"); }}>Logout</button></div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

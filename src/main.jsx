@@ -1,4 +1,5 @@
 import "@fontsource-variable/inter/wght.css";
+import "@fontsource/instrument-serif/400-italic.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

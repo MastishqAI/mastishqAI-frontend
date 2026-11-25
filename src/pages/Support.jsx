@@ -47,13 +47,11 @@ export default function Support() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: 940 }}>
-      <h1 className="page-title">Help &amp; Support</h1>
-      <p className="page-sub">We read every query. Replies come to the email on your account.</p>
+    <div className="container">
 
       <form className="card support-card" onSubmit={submit}>
         <h2>Help &amp; Support</h2>
-        <p className="sub">Raise a query or report an issue</p>
+        <p className="sub">Raise a query or report an issue. We read every one and reply to the email on your account.</p>
         {done && <div className="ok">Thanks — your query was sent. We'll get back to you by email.</div>}
         <textarea placeholder="Describe your issue..." value={text} maxLength={4000} onChange={(e) => { setText(e.target.value); setDone(false); }} />
 

@@ -16,6 +16,109 @@ function RookieBadge() {
   );
 }
 
+
+const BAND_COLOR = { Strong: "var(--blue-500)", Building: "var(--blue-500)", Weak: "#F5A623" };
+const initialsOf = (n = "") => n.split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
+
+function LevelsPopover({ current }) {
+  const { data } = useGet("/xp/overview");
+  return (
+    <div className="hm-pop" role="dialog" aria-label="Levels">
+      {!data ? <p style={{ padding: 12, fontSize: 12 }}>Loading…</p> : data.levels.map((l) => (
+        <Link key={l.n} to="/progress?tab=levels" className={l.n === current ? "on" : ""}>
+          <span className="n">{l.n}</span><span className="t"><b>Level {l.n}</b><small>From {l.from.toLocaleString("en-IN")} pts</small></span>
+          {l.state === "done" && <span className="ok">✓</span>}{l.state === "current" && <span className="you">You</span>}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function WhereIStand({ t }) {
+  const { data: lb } = useGet("/leaderboard/around?top=3");
+  const rows = lb?.rows || [];
+  return (
+    <>
+      <h2 className="hm-h left">Where I stand</h2>
+      <p className="hm-sub left">Your syllabus map moves from Weak to Strong as you practise.</p>
+      <div className="hm-stand">
+        <section className="hm-card hm-lb">
+          <div className="hd"><span className="ic"><Icon.trophy size={18} /></span><div><b>Leaderboard</b><small>Ranked by points</small></div>
+            {lb?.movedUp > 0 && <span className="up">↑ {lb.movedUp} place{lb.movedUp > 1 ? "s" : ""} this week</span>}</div>
+          {rows.length === 0 && <p className="empty">Practise a stage to appear on the leaderboard.</p>}
+          {rows.map((r, i) => (
+            <div key={r.rank} className={`row ${r.me ? "me" : ""} ${lb.gapAfter && i === lb.gapAfter ? "gap" : ""}`}>
+              <span className="rk">#{r.rank}</span><span className="av">{initialsOf(r.name === "You" ? "Y" : r.name) || r.initial}</span>
+              <b className="nm">{r.me ? "You" : r.name}</b>{r.me && <span className="you">You</span>}
+              <span className="pt">{r.points.toLocaleString("en-IN")} pts</span>
+            </div>
+          ))}
+        </section>
+        <aside className="hm-card hm-map">
+          <div className="hd"><b>Syllabus map</b><small>Weak → Strong</small></div>
+          {(t?.syllabus || []).length === 0 && <p className="empty">Finish a stage and your topics will appear here.</p>}
+          {(t?.syllabus || []).map((x) => (
+            <div key={x.topic} className="mrow">
+              <div><span>{x.topic}</span><em style={{ color: x.band === "Weak" ? "#B45309" : "var(--blue-600)" }}>{x.band}</em></div>
+              <i className="bar"><u style={{ width: `${Math.max(6, x.pct)}%`, background: BAND_COLOR[x.band] }} /></i>
+            </div>
+          ))}
+        </aside>
+      </div>
+      <div className="hm-center"><Link className="hm-btn solid" to="/progress">View Leaderboard</Link></div>
+    </>
+  );
+}
+
+function ReturningHome({ d, t }) {
+  const [levels, setLevels] = useState(false);
+  const pct = d.levelNext ? Math.round((d.points / d.levelNext) * 100) : 100;
+  const resume = t?.resume;
+  const go = resume ? `/quiz/${resume.attemptId}` : "/practice";
+  const week = t?.week || [];
+  const next = d.levelNext ? d.nextLevel : d.level;
+  return (
+    <>
+      <section className="hm-hero">
+        <span className="hm-chip"><i />Welcome back</span>
+        <h1>Welcome back, {d.firstName}.<br />Pick up where you <em>left off</em>.</h1>
+        <p>{d.levelNext ? `You are ${Math.max(0, 100 - pct)}% away from Level ${next}. ` : ""}One 10-minute session today keeps your streak going and moves your syllabus map from Weak to Strong.</p>
+        <div className="hm-cta">
+          <Link className="hm-btn solid" to={go}>Continue practice <Icon.arrowRight size={16} /></Link>
+          <Link className="hm-btn outline" to="/mistakes">Fix my mistakes <Icon.arrowRight size={16} /></Link>
+        </div>
+        {resume && <small>Next up: {resume.topic} · {resume.stageLabel} stage · {resume.answered} of {resume.total} questions done</small>}
+      </section>
+
+      <section className="hm-card hm-streak">
+        <div className="l">
+          <div className="top"><span className="fl"><Icon.flame size={22} /></span><div><b>{d.streak} day streak</b><small>Practise today to reach a {d.streak + 1}-day streak</small></div></div>
+          <div className="dots" aria-label="This week">
+            {week.map((w, i) => (
+              <span key={i}><em>{w.label}</em><i className={w.done ? "ok" : w.today ? "today" : ""}>{w.done && <Icon.check size={15} />}</i></span>
+            ))}
+          </div>
+        </div>
+        <div className="r">
+          <div className="line"><span className="lv">Level {d.level}</span><span>{pct}% of the way to Level {next} · {d.points.toLocaleString("en-IN")} pts</span></div>
+          <i className="bar"><u style={{ width: `${pct}%` }} /></i>
+          <div className="pw"><button type="button" className="hm-more" aria-expanded={levels} onClick={() => setLevels(!levels)}>View levels <Icon.chevronDown size={14} /></button>{levels && <LevelsPopover current={d.level} />}</div>
+        </div>
+      </section>
+
+      <h2 className="hm-h">Today's 3 steps</h2>
+      <p className="hm-sub">Do these today to keep your streak and climb towards Level {next}.</p>
+      <div className="hm-steps">
+        <Link to={go} className="hs on"><div className="top"><span className="n">1</span><u /><span className="chip">+30 pts</span></div><h3>Practise 10 minutes of {resume?.topic || "a topic"}</h3><p>{resume ? `Pick up the ${resume.stageLabel} stage where you stopped.` : "Pick any topic, or one we suggest from your weak spots."}</p></Link>
+        <Link to="/mistakes" className="hs"><div className="top"><span className="n">2</span><u /><span className="chip">+20 pts</span></div><h3>Fix 5 mistakes from your Mistake Bank</h3><p>Fresh similar questions until each mistake is Fixed.{t ? ` ${t.mistakesOpen} waiting.` : ""}</p></Link>
+        <Link to="/practice" className="hs"><div className="top"><span className="n">3</span><u /><span className="chip warm">+30 pts · streak</span></div><h3>Extend your streak to {d.streak + 1} days</h3><p>Even 10 minutes a day keeps your streak going.</p></Link>
+      </div>
+
+      <WhereIStand t={t} />
+    </>
+  );
+}
+
 const FAQ = [
   ["What is the 10-minute diagnostic?", "A quick 20-question quiz that maps your current strengths and weaknesses across the syllabus."],
   ["Can I add extra questions to a stage?", "Yes. Before starting, you can add extra questions to any stage. A higher question count increases your score multiplier risk and reward."],
@@ -33,6 +136,7 @@ const FAQ = [
 
 export default function Today() {
   const { data: d, loading, error } = useGet("/home");
+  const { data: today } = useGet("/home/today");
   const nav = useNavigate();
   const [open, setOpen] = useState({ 0: true, 3: true, 6: true, 7: true, 8: true, 9: true });
   const [busy, setBusy] = useState(false);
@@ -51,43 +155,22 @@ export default function Today() {
 
   return (
     <>
-      <div className="container">
-        <div className="level-bar">
-          <span className="lv">Level {d.level}</span>
-          <span>{d.pct}% of the way to Level {nextName} · {d.points.toLocaleString()} pts</span>
-          <div className="track"><i style={{ width: `${d.pct}%` }} /></div>
-          <Link to="/progress" style={{ fontWeight: 600, fontSize: 13 }}>View levels</Link>
-        </div>
-
-        <section className="hero">
-          <div>
-            <span className="tagline">Level {d.level} · {d.levelName}</span>
-            {returning ? (
-              <>
-                <h2>Welcome back, {d.firstName}. {d.streak > 0 ? `You're on a ${d.streak}-day streak.` : "Let's get a streak going."}</h2>
-                <p>Every correct answer moves you closer to Level {nextName}. Pick up where you left off, or fix a few mistakes to turn weak spots into strengths.</p>
-                <Link className="btn white" to="/practice" style={{ height: 44 }}>Continue practising</Link>
-                <small>{d.toNext.toLocaleString()} pts to Level {nextName}</small>
-              </>
-            ) : (
-              <>
-                <h2>Welcome, {d.firstName}. Your {d.exam || "learning"} journey starts today.</h2>
-                <p>You are at Level 0, and that is exactly where every topper started. Take one 10-minute step and we will build a study plan around what you already know.</p>
-                <button className="btn white" style={{ height: 44 }} disabled={busy} onClick={startDiagnostic}>{busy ? "Preparing…" : "Take 10-minute diagnostic"}</button>
-                <small>Free · No negative marking · Nobody sees your score</small>
-              </>
-            )}
-          </div>
-          <div className="badge-card">
-            <div className="badge-art"><RookieBadge /></div>
-            <div>{d.badges.includes("Rookie") ? "Badge earned: Rookie" : "First badge: Rookie"}</div>
-            <div className="track"><i style={{ width: `${Math.min(100, (d.points / (d.levelNext || 100)) * 100)}%` }} /></div>
-            <div style={{ fontWeight: 500, fontSize: 12 }}>{d.points} / {d.levelNext || d.points} pts to Level {nextName}</div>
-          </div>
-        </section>
-
-        <h2 className="section-title">Your first 3 steps</h2>
-        <p className="muted" style={{ color: "var(--gray-500)", fontSize: 14 }}>Do these this week and you will reach Level 1.</p>
+      <div className="container hm">
+        {returning ? <ReturningHome d={d} t={today} /> : (
+          <>
+            <section className="hm-hero">
+              <span className="hm-chip"><i />Level {d.level} · New here</span>
+              <h1>Welcome, {d.firstName}.<br />Your {d.exam || "learning"} <em>journey</em><br />starts today.</h1>
+              <p>You are at Level {d.level}, and that is exactly where every topper started. Take one 10-minute step and we will build a study plan around what you already know.</p>
+              <div className="hm-cta"><button className="hm-btn solid" disabled={busy} onClick={startDiagnostic}>{busy ? "Preparing…" : <>Take 10-minute diagnostic <Icon.arrowRight size={16} /></>}</button></div>
+              <small>Free · No negative marking · Nobody sees your score</small>
+            </section>
+            <section className="hm-card hm-first">
+              <div className="ring"><img src="/badges/rookie.png" alt="" width="64" height="64" /></div>
+              <div className="grow"><b>First badge: Rookie</b><i className="bar"><u style={{ width: `${Math.min(100, (d.points / (d.levelNext || 400)) * 100)}%` }} /></i><span>{d.points} / {d.levelNext || d.points} pts to Level {nextName}</span></div>
+            </section>
+            <h2 className="section-title">Your first 3 steps</h2>
+            <p className="muted" style={{ color: "var(--gray-500)", fontSize: 14 }}>Do these this week and you will reach Level {nextName}.</p>
         <div className="steps">
           <div className={`step ${d.diagnosticDone ? "done" : ""}`}>
             <span className="num">{d.diagnosticDone ? <Icon.check size={14} /> : 1}</span>
@@ -116,24 +199,25 @@ export default function Today() {
             {d.streak3 ? <p className="locked" style={{ color: "var(--green-600)", fontWeight: 600 }}>Completed · {d.streak} days</p> : d.diagnosticDone ? <p className="locked">🔥 {d.streak} / 3 days</p> : <p className="locked">🔒 Locked until step 1</p>}
           </div>
         </div>
+          </>
+        )}
       </div>
 
       <section className="band warm">
         <div className="container" style={{ paddingTop: 0, paddingBottom: 0 }}>
-          <span className="eyebrow">The Process</span>
-          <h2 className="h-center">From topic to mastery in minutes</h2>
+          <h2 className="h-center">From topic to <em>mastery</em> in minutes</h2>
           <p className="s-center" style={{ maxWidth: "none" }}>AI builds a personalised 3-stage quiz from any topic in seconds no prep needed.</p>
-          <div className="process">
+          <div className="process hmproc">
             {[
-              ["Step 01", "Practice", "Topic quizzes, full mocks and weak-spot sets in your exam pattern.", "brain", "#E7F5FD", "#139CED"],
-              ["Step 02", "See where marks went", "After every test lost marks by topic and mistake type.", "sparkle", "#FEF3C7", "#D97706"],
-              ["Step 03", "Fix Your mistakes", "Fresh similar questions until each mistake is Fixed.", "xCircle", "#FEE2E2", "#DC2626"],
-              ["Step 04", "Track Progress", "Your syllabus map moves from Weak to Strong.", "chart", "#F5F3FF", "#7C3AED"],
+              ["Step 01", "Practice", "Topic quizzes, full mocks and weak-spot sets in your exam pattern.", "target", "#eef8fe", "#139CED"],
+              ["Step 02", "See where marks went", "After every test lost marks by topic and mistake type.", "barChart", "#eef8fe", "#139CED"],
+              ["Step 03", "Fix your mistakes", "Fresh similar questions until each mistake is Fixed.", "refresh", "#eef8fe", "#139CED"],
+              ["Step 04", "Track Progress", "Your syllabus map moves from Weak to Strong.", "arrowUpRight", "#eef8fe", "#139CED"],
             ].map(([s, t, p, ic, bg, fg]) => {
               const C = Icon[ic];
               return (
                 <div key={s}>
-                  <div className="ico" style={{ background: bg, color: fg }}><C size={24} /></div>
+                  <div className="top"><div className="ico" style={{ background: bg, color: fg }}><C size={26} /></div><u /></div>
                   <small>{s}</small><h4>{t}</h4><p>{p}</p>
                 </div>
               );
@@ -144,18 +228,19 @@ export default function Today() {
 
       <section className="band cool">
         <div className="container" style={{ paddingTop: 0, paddingBottom: 0 }}>
-          <span className="eyebrow">Mistake Banks</span>
-          <h2 className="h-center">Mistake Banks help learners<br />review, reflect, and improve.</h2>
+          <h2 className="h-center">Mistake Banks help learners review, reflect, and <em>improve</em>.</h2>
           <p className="s-center">Mistake Banks collect questions learners struggle with, so they can revisit weak areas, build confidence, and reinforce learning over time.</p>
-          <div className="mb-grid">
+          <div className="tl">
+            <i className="rail" aria-hidden="true" />
             {[
-              ["Review", "Review highlights where you need more practice so you can focus on weak areas, track progress, identify gaps, and build confidence as tricky concepts become clearer.", "#E8F1FB"],
-              ["Reflect", "Reflection helps you understand why mistakes happened, learn from feedback, clarify confusing concepts with explanations and examples, and retake with confidence once the mistake is clear.", "#FDF2E4"],
-              ["Improve", "Improvement turns mistakes into lasting gains by focusing on weak spots, building recall through spaced practice, keeping you on track, and celebrating progress as weak areas become strengths.", "#EAF6EE"],
-            ].map(([t, p, bg]) => (
-              <div key={t} className="mb">
-                <div className="img" style={{ background: bg }}><Icon.brain size={44} style={{ color: "#0C6498", opacity: .55 }} /></div>
-                <h4>{t}</h4><p>{p}</p>
+              ["Review", "01", "Review highlights where you need more practice so you can focus on weak areas, track progress, identify gaps, and build confidence as tricky concepts become clearer.", "/home/review.png", false],
+              ["Reflect", "02", "Reflection helps you understand why mistakes happened, learn from feedback, clarify confusing concepts with explanations and examples, and retake with confidence once the mistake is clear.", "/home/reflect.png", true],
+              ["Improve", "03", "Improvement turns mistakes into lasting gains by focusing on weak spots, building recall through spaced practice, keeping you on track, and celebrating progress as weak areas become strengths.", "/home/improve.png", false],
+            ].map(([t, n, p, img, flip]) => (
+              <div key={t} className={`tl-row ${flip ? "flip" : ""}`}>
+                <div className="scr"><img src={img} alt={`${t}: a screen from the Mistake Bank`} width="528" height="440" loading="lazy" /></div>
+                <div className="node"><b>{n}</b></div>
+                <div className="txt"><h3>{t}</h3><p>{p}</p></div>
               </div>
             ))}
           </div>
@@ -181,7 +266,6 @@ export default function Today() {
 
       <section className="band cool">
         <div className="container" style={{ paddingTop: 0, paddingBottom: 0 }}>
-          <span className="eyebrow">FAQ</span>
           <h2 className="h-center">Frequently Asked Questions</h2>
           <p className="s-center">Everything you need to know about your {d.exam || "learning"} journey, from diagnostics to leveling up.</p>
           <div className="faq">

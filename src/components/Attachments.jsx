@@ -4,7 +4,7 @@ import api from "../api";
 const MAX_FILES = 5;
 
 // Shrinks photos before upload (phone cameras make 5-10 MB images; 1600px is plenty to read text and keeps the AI read cheap).
-function prepareImage(blobOrFile, name) {
+export function prepareImage(blobOrFile, name) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blobOrFile);
     const img = new Image();
@@ -61,27 +61,44 @@ function Scanner({ onShot, onClose, onFallback }) {
   );
 }
 
-// "Upload file" + "Scan a page". Each file is read by the server as soon as it is added; `files` holds what was read.
-export default function Attachments({ files, setFiles, onError }) {
+const sizeText = (b = 0) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+const kindOf = (name = "", mime = "") => (/pdf/i.test(mime) || /\.pdf$/i.test(name) ? ["PDF", "pdf"] : /png/i.test(mime) || /\.png$/i.test(name) ? ["PNG", "img"] : ["JPG", "img"]);
+
+// "Upload file" + "Scan a page". Files are read one after another; each row shows waiting, scanning with progress, then what was found.
+export default function Attachments({ files, setFiles, onError, onScanning }) {
   const pick = useRef(null);
   const photo = useRef(null);
-  const [busy, setBusy] = useState(0);
+  const [queue, setQueue] = useState([]);
   const [scan, setScan] = useState(false);
+  const chain = useRef(Promise.resolve());
+  const counts = useRef({ files: 0, queued: 0 });
+  counts.current.files = files.length;
+  useEffect(() => { onScanning?.(queue.length); }, [queue.length]);
 
-  const send = async (file) => {
-    if (files.length + busy >= MAX_FILES) return onError(`You can add up to ${MAX_FILES} files.`);
-    setBusy((n) => n + 1); onError("");
+  const run = async (key, file, source) => {
+    setQueue((q) => q.map((i) => (i.key === key ? { ...i, status: "scanning", pct: 4 } : i)));
+    let timer;
+    const set = (pct) => setQueue((q) => q.map((i) => (i.key === key ? { ...i, pct: Math.max(i.pct, pct) } : i)));
     try {
       const f = file.type.startsWith("image/") ? await prepareImage(file, file.name || "scan.jpg") : file;
       if (f.size > 8 * 1024 * 1024) throw new Error("That file is over 8 MB. Please use a smaller file or fewer pages.");
       const fd = new FormData(); fd.append("file", f);
-      const r = await api.post("/materials", fd);
-      setFiles((x) => [...x, r.material]);
+      const r = await api.post("/materials", fd, { onUploadProgress: (e) => { if (e.total) { set(Math.round((e.loaded / e.total) * 55)); if (e.loaded >= e.total && !timer) timer = setInterval(() => set(Math.min(95, 60 + Math.random() * 35)), 500); } } });
+      setFiles((x) => [...x, { ...r.material, source }]);
     } catch (e) { onError(e.message); }
-    finally { setBusy((n) => n - 1); }
+    finally { clearInterval(timer); setQueue((q) => q.filter((i) => i.key !== key)); counts.current.queued -= 1; }
   };
 
-  const onPick = (e) => { [...e.target.files].forEach(send); e.target.value = ""; };
+  const add = (file, source = "upload") => {
+    if (counts.current.files + counts.current.queued >= MAX_FILES) return onError(`You can add up to ${MAX_FILES} files.`);
+    onError("");
+    const key = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    counts.current.queued += 1;
+    setQueue((q) => [...q, { key, name: file.name || "scan.jpg", size: file.size, mime: file.type, source, status: "waiting", pct: 0 }]);
+    chain.current = chain.current.then(() => run(key, file, source));      // one at a time, so "Waiting to scan" is real
+  };
+
+  const onPick = (e) => { [...e.target.files].forEach((f) => add(f)); e.target.value = ""; };
   const remove = async (m) => {
     setFiles((x) => x.filter((y) => y.id !== m.id));
     try { await api.delete(`/materials/${m.id}`); } catch { /* already gone is fine */ }
@@ -94,19 +111,38 @@ export default function Attachments({ files, setFiles, onError }) {
         <div className="drop" role="button" tabIndex={0} onClick={() => setScan(true)} onKeyDown={(e) => e.key === "Enter" && setScan(true)}><b>Scan a page</b><span>Use your camera</span></div>
       </div>
       <input ref={pick} type="file" accept="application/pdf,image/png,image/jpeg" multiple hidden onChange={onPick} />
-      <input ref={photo} type="file" accept="image/*" capture="environment" hidden onChange={onPick} />
+      <input ref={photo} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { [...e.target.files].forEach((f) => add(f, "camera")); e.target.value = ""; }} />
 
-      {(files.length > 0 || busy > 0) && (
-        <ul className="att-list">
-          {files.map((m) => (
-            <li key={m.id}><span className="att-name">{m.name}</span><small>{m.pages} {m.pages === 1 ? "page" : "pages"} read</small><button type="button" aria-label={`Remove ${m.name}`} onClick={() => remove(m)}>×</button></li>
-          ))}
-          {busy > 0 && <li className="att-busy"><span className="att-name">Reading {busy === 1 ? "your file" : `${busy} files`}…</span><small>a few seconds</small></li>}
+      {(files.length > 0 || queue.length > 0) && (
+        <ul className="mat-list">
+          {files.map((m) => {
+            const [label, tone] = kindOf(m.name, m.mime);
+            return (
+              <li key={m.id} className="done">
+                <span className={`ft ${tone}`}>{label}</span>
+                <div className="info"><b title={m.name}>{m.name}</b><small>{sizeText(m.size)} · {m.source === "camera" ? "scanned with camera" : `${m.pages} ${m.pages === 1 ? "page" : "pages"}`}</small></div>
+                <span className="ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg> Scanned{m.topics?.length ? ` · ${m.topics.length} topic${m.topics.length > 1 ? "s" : ""} found` : ""}</span>
+                <button type="button" className="x" aria-label={`Remove ${m.name}`} onClick={() => remove(m)}>×</button>
+              </li>
+            );
+          })}
+          {queue.map((q) => {
+            const [label, tone] = kindOf(q.name, q.mime);
+            return (
+              <li key={q.key}>
+                <span className={`ft ${tone}`}>{label}</span>
+                <div className="info"><b title={q.name}>{q.name}</b><small>{sizeText(q.size)} · {q.source === "camera" ? "scanned with camera" : "uploading"}</small></div>
+                {q.status === "scanning"
+                  ? <span className="prog"><em>Scanning… {Math.round(q.pct)}%</em><i><u style={{ width: `${q.pct}%` }} /></i></span>
+                  : <span className="wait">Waiting to scan</span>}
+              </li>
+            );
+          })}
         </ul>
       )}
       <p className="att-hint">The quiz will use your topic, your description and these files together. Files stay private to you and are deleted after 90 days.</p>
 
-      {scan && <Scanner onClose={() => setScan(false)} onShot={(b) => { setScan(false); send(new File([b], `scan-${files.length + 1}.jpg`, { type: "image/jpeg" })); }} onFallback={() => { setScan(false); photo.current.click(); }} />}
+      {scan && <Scanner onClose={() => setScan(false)} onShot={(b) => { setScan(false); add(new File([b], `scan-${Date.now() % 10000}.jpg`, { type: "image/jpeg" }), "camera"); }} onFallback={() => { setScan(false); photo.current.click(); }} />}
     </>
   );
 }
