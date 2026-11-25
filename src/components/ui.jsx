@@ -16,6 +16,23 @@ export function LogoMark({ size = 28 }) {
     </svg>
   );
 }
+// Round profile picture. If there is no picture (or it fails to load) it shows the initials, e.g. "AS" for Akash Srivastava.
+export const initialsOf = (name = "") => {
+  const w = name.trim().split(/\s+/).filter(Boolean);
+  return ((w[0]?.[0] || "") + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase() || "?";
+};
+export function Avatar({ user, size, className = "" }) {
+  const [bad, setBad] = useState(false);
+  useEffect(() => setBad(false), [user?.picture]);
+  const box = size ? { width: size, height: size, fontSize: Math.round(size * 0.36) } : undefined;
+  return (
+    <span className={`avatar ${className}`} style={{ ...box, position: "relative" }}>
+      {initialsOf(user?.name)}
+      {user?.picture && !bad && <img src={user.picture} alt="" referrerPolicy="no-referrer" onError={() => setBad(true)} style={{ position: "absolute", inset: 0 }} />}
+    </span>
+  );
+}
+
 export function Logo({ size = 28, text = 22, stack = false, to }) {
   const inner = (
     <span className={`logo ${stack ? "stack" : ""}`}>
@@ -77,7 +94,7 @@ export function TopNav() {
         <div className="pts-chip"><Icon.bolt size={15} /> Lvl {d?.level ?? 0}<i /><b>{(d?.points ?? 0).toLocaleString()} pts</b></div>
         <div ref={ref} style={{ position: "relative" }}>
           <button className="menu-wrap" onClick={() => setOpen(!open)} aria-label="Account menu">
-            <span className="avatar" style={user?.picture ? { backgroundImage: `url(${user.picture})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}>{initials}</span><Icon.chevDown size={16} style={{ color: "#6B7280" }} />
+            <Avatar user={user} /><Icon.chevDown size={16} style={{ color: "#6B7280" }} />
           </button>
           {open && (
             <div className="menu">
@@ -87,7 +104,6 @@ export function TopNav() {
               </div>
               {user?.plan !== "pro" && <Link to="/plans" className="upgrade-item" onClick={() => setOpen(false)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" /><path d="M2 9h20" /></svg>Upgrade to Pro</Link>}
               <Link to="/profile" onClick={() => setOpen(false)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>Profile</Link>
-              <Link to="/notifications" onClick={() => setOpen(false)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>Notifications</Link>
               <Link to="/support" onClick={() => setOpen(false)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7" /><path d="M12 17h.01" /></svg>Help &amp; Support</Link>
               <button className="logout" onClick={() => { setOpen(false); setConfirmOut(true); }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>Logout</button>
             </div>

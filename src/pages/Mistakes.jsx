@@ -17,12 +17,12 @@ function Dropdown({ label, items, value, onChange }) {
   const toggle = (it) => onChange(value.includes(it) ? value.filter((x) => x !== it) : [...value, it]);
   return (
     <div className="dd" ref={ref}>
-      <button onClick={() => setOpen(!open)}>{label}<span className="cnt">{all ? items.length : value.length}</span><Icon.chevDown size={16} /></button>
+      <button onClick={() => setOpen(!open)}>{label}<span className="cnt">{all ? "All" : value.length}</span><Icon.chevDown size={16} /></button>
       {open && (
         <div className="pop">
-          <label className="all"><input type="checkbox" checked={all} onChange={() => onChange([])} />All {label.toLowerCase()}s</label>
+          <label className="all"><input type="checkbox" checked={all} onChange={() => { onChange([]); setOpen(false); }} />All {label.toLowerCase()}s</label>
           {items.map((it) => (
-            <label key={it}><input type="checkbox" checked={all || value.includes(it)} onChange={() => (all ? onChange(items.filter((x) => x !== it)) : toggle(it))} />{it}</label>
+            <label key={it}><input type="checkbox" checked={value.includes(it)} onChange={() => toggle(it)} />{it}</label>
           ))}
         </div>
       )}
@@ -36,11 +36,12 @@ export default function Mistakes() {
   const [err, setErr] = useState("");
   const [subj, setSubj] = useState([]);
   const [topic, setTopic] = useState([]);
+  const [shown, setShown] = useState(10);
   const [modal, setModal] = useState(null); // {mode:'review'|'similar', m, ...}
 
   const load = () =>
     api.get("/mistakes", { params: { subject: subj.join(","), topic: topic.join(",") } }).then(setData).catch((e) => setErr(e.message));
-  useEffect(() => { load(); }, [subj.join(","), topic.join(",")]);
+  useEffect(() => { load(); setShown(10); }, [subj.join(","), topic.join(",")]);
 
   const review = async (m) => {
     try { const r = await api.get(`/mistakes/${m.id}`); setModal({ mode: "review", m: r.mistake }); } catch (e) { setErr(e.message); }
@@ -81,11 +82,10 @@ export default function Mistakes() {
             <div className="card stat-card"><div className="t"><i style={{ background: "var(--green-400)" }} />Fixed</div><div className="n" style={{ color: "var(--green-700)" }}>{data.fixed}</div><small>2 correct on new questions</small></div>
           </div>
           <div className="filters">
-            <Dropdown label="Subject" items={data.subjects} value={subj} onChange={(v) => { setSubj(v); setTopic([]); }} />
             <Dropdown label="Topic" items={data.topics} value={topic} onChange={setTopic} />
           </div>
           <div className="m-grid">
-            {data.mistakes.map((m) => (
+            {data.mistakes.slice(0, shown).map((m) => (
               <div key={m.id} className="card m-card">
                 <div className="m-tags">{m.tags.map((t) => <span key={t}>{t}</span>)}</div>
                 <div className="m-meta"><span>{m.subject} · {m.topic}</span><span className={`status ${m.status}`}>{m.status[0].toUpperCase() + m.status.slice(1)}</span></div>
@@ -94,13 +94,14 @@ export default function Mistakes() {
                   <span>{fmt(m.lastAt)} · {m.tries} {m.tries === 1 ? "try" : "tries"}</span>
                   <span className="a">
                     <button className="link" onClick={() => review(m)}>Review</button>
-                    <button className="btn outline sm" style={{ height: 40, color: "var(--gray-900)" }} onClick={() => similar(m)}>Practice similar</button>
+                    <button className="btn outline sm m-sim" onClick={() => similar(m)}>Practice similar</button>
                   </span>
                 </div>
               </div>
             ))}
             {!data.mistakes.length && <p style={{ color: "var(--gray-500)" }}>No mistakes match these filters.</p>}
           </div>
+          {data.mistakes.length > shown && <div className="m-more"><button type="button" className="btn outline" onClick={() => setShown(shown + 10)}>Show more ({data.mistakes.length - shown} left)</button></div>}
         </>
       )}
 

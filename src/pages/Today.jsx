@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useGet } from "../hooks";
 import { Icon } from "../components/icons.jsx";
+import { useAuth } from "../auth.jsx";
 
 function RookieBadge() {
   return (
@@ -17,7 +18,7 @@ function RookieBadge() {
 }
 
 
-const BAND_COLOR = { Strong: "var(--blue-500)", Building: "var(--blue-500)", Weak: "#F5A623" };
+const BAND_COLOR = { Strong: "#5aa9e6", Building: "#5aa9e6", Weak: "#f6b84a" };
 const initialsOf = (n = "") => n.split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
 
 function LevelsPopover({ current }) {
@@ -35,21 +36,28 @@ function LevelsPopover({ current }) {
 }
 
 function WhereIStand({ t }) {
+  const { user } = useAuth();
+  const [first, ...rest] = (user?.name || "").trim().split(/\s+/);
+  const myName = first ? `${first[0].toUpperCase()}${first.slice(1)}${rest.length ? ` ${rest[rest.length - 1][0].toUpperCase()}.` : ""}` : "You";
   const { data: lb } = useGet("/leaderboard/around?top=3");
   const rows = lb?.rows || [];
   return (
     <>
       <h2 className="hm-h left">Where I stand</h2>
-      <p className="hm-sub left">Your syllabus map moves from Weak to Strong as you practise.</p>
+      <p className="hm-sub left">Your syllabus map moves from Weak to Strong.</p>
       <div className="hm-stand">
         <section className="hm-card hm-lb">
-          <div className="hd"><span className="ic"><Icon.trophy size={18} /></span><div><b>Leaderboard</b><small>Ranked by points</small></div>
-            {lb?.movedUp > 0 && <span className="up">↑ {lb.movedUp} place{lb.movedUp > 1 ? "s" : ""} this week</span>}</div>
+          <div className="hd"><span className="ic"><Icon.trophy size={18} /></span><div><b>Leaderboard</b><small>Rank by effort, not luck</small></div>
+            {lb && rows.length > 0 && (lb.movedUp > 0
+              ? <span className="up"><Icon.arrowUp size={14} /> {lb.movedUp} place{lb.movedUp > 1 ? "s" : ""} this week</span>
+              : lb.movedUp < 0
+                ? <span className="up down"><Icon.arrowUp size={14} style={{ transform: "rotate(180deg)" }} /> {-lb.movedUp} place{lb.movedUp < -1 ? "s" : ""} this week</span>
+                : <span className="up flat">No change this week</span>)}</div>
           {rows.length === 0 && <p className="empty">Practise a stage to appear on the leaderboard.</p>}
           {rows.map((r, i) => (
-            <div key={r.rank} className={`row ${r.me ? "me" : ""} ${lb.gapAfter && i === lb.gapAfter ? "gap" : ""}`}>
-              <span className="rk">#{r.rank}</span><span className="av">{initialsOf(r.name === "You" ? "Y" : r.name) || r.initial}</span>
-              <b className="nm">{r.me ? "You" : r.name}</b>{r.me && <span className="you">You</span>}
+            <div key={r.rank} className={`row ${r.me ? "me" : ""} ${r.rank <= 3 ? "top" : ""} ${r.rank === 1 ? "first" : ""} ${lb.gapAfter && i === lb.gapAfter ? "gap" : ""}`}>
+              <span className="rk">#{r.rank}</span><span className="av">{initialsOf(r.me ? myName : r.name) || r.initial}</span>
+              <b className="nm">{r.me ? myName : r.name}</b>{r.me && <span className="you">You</span>}
               <span className="pt">{r.points.toLocaleString("en-IN")} pts</span>
             </div>
           ))}
@@ -59,7 +67,7 @@ function WhereIStand({ t }) {
           {(t?.syllabus || []).length === 0 && <p className="empty">Finish a stage and your topics will appear here.</p>}
           {(t?.syllabus || []).map((x) => (
             <div key={x.topic} className="mrow">
-              <div><span>{x.topic}</span><em style={{ color: x.band === "Weak" ? "#B45309" : "var(--blue-600)" }}>{x.band}</em></div>
+              <div><span>{x.topic}</span><em style={{ color: x.band === "Weak" ? "#8a5200" : "#0f6fae" }}>{x.band}</em></div>
               <i className="bar"><u style={{ width: `${Math.max(6, x.pct)}%`, background: BAND_COLOR[x.band] }} /></i>
             </div>
           ))}
@@ -81,7 +89,7 @@ function ReturningHome({ d, t }) {
     <>
       <section className="hm-hero">
         <span className="hm-chip"><i />Welcome back</span>
-        <h1>Welcome back, {d.firstName}.<br />Pick up where you <em>left off</em>.</h1>
+        <h1>Welcome back, {(d.firstName || "").replace(/^\w/, (c) => c.toUpperCase())}.<br />Pick up where you <em>left off</em>.</h1>
         <p>{d.levelNext ? `You are ${Math.max(0, 100 - pct)}% away from Level ${next}. ` : ""}One 10-minute session today keeps your streak going and moves your syllabus map from Weak to Strong.</p>
         <div className="hm-cta">
           <Link className="hm-btn solid" to={go}>Continue practice <Icon.arrowRight size={16} /></Link>
@@ -134,12 +142,61 @@ const FAQ = [
   ["Where can I find explanations for mistakes?", "Open any attempt in Review and tap Ask why — Mastishq AI explains the answer step by step."],
 ];
 
+// Soft scroll-reveal for every home section + progressive timeline for the Mistake Bank.
+function useScrollAnimations(ready) {
+  const tlRef = useRef(null);
+  useLayoutEffect(() => {
+    if (!ready) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const sel = [
+      ".hm > section", ".hm > h2", ".hm > p", ".hm > div", ".hm .steps > .step",
+      ".band .container > h2", ".band .container > p",
+      ".process > div", ".feat > div", ".faq-item",
+    ].join(",");
+    const els = [...document.querySelectorAll(sel)].filter((e) => !e.closest(".tl"));
+    els.forEach((e) => {
+      if (e.classList.contains("rv")) return;
+      e.classList.add("rv");
+      const sibs = e.parentElement ? [...e.parentElement.children].filter((c) => c.classList.contains("rv") || els.includes(c)) : [];
+      e.style.setProperty("--rv-d", `${Math.min(Math.max(sibs.indexOf(e), 0), 4) * 90}ms`);
+    });
+    const tl = tlRef.current || document.querySelector(".tl");
+    const rows = tl ? [...tl.querySelectorAll(".tl-row")] : [];
+    rows.forEach((r) => r.classList.add("rv-row"));
+    if (reduce || !("IntersectionObserver" in window)) {
+      [...els, ...rows].forEach((e) => e.classList.add("in"));
+      tl?.style.setProperty("--p", 1);
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
+    }, { threshold: 0.15, rootMargin: "0px 0px -8% 0px" });
+    [...els, ...rows].forEach((e) => io.observe(e));
+
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (!tl) return;
+      const r = tl.getBoundingClientRect();
+      const p = Math.min(1, Math.max(0, (window.innerHeight * 0.65 - r.top) / r.height));
+      tl.style.setProperty("--p", p.toFixed(4));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { io.disconnect(); window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, [ready]);
+  return tlRef;
+}
+
 export default function Today() {
   const { data: d, loading, error } = useGet("/home");
   const { data: today } = useGet("/home/today");
   const nav = useNavigate();
-  const [open, setOpen] = useState({ 0: true, 3: true, 6: true, 7: true, 8: true, 9: true });
+  const [open, setOpen] = useState({});
   const [busy, setBusy] = useState(false);
+  const tlRef = useScrollAnimations(!loading && !error);
 
   const startDiagnostic = async () => {
     setBusy(true);
@@ -151,6 +208,7 @@ export default function Today() {
   if (error) return <div className="container"><div className="error">{error}</div></div>;
 
   const returning = d.points > 0 || d.diagnosticDone;
+  const firstName = (d.firstName || "").replace(/^\w/, (c) => c.toUpperCase());
   const nextName = d.nextLevel;
 
   return (
@@ -160,7 +218,7 @@ export default function Today() {
           <>
             <section className="hm-hero">
               <span className="hm-chip"><i />Level {d.level} · New here</span>
-              <h1>Welcome, {d.firstName}.<br />Your {d.exam || "learning"} <em>journey</em><br />starts today.</h1>
+              <h1>Welcome, {firstName}.<br />Your {d.exam || "learning"} <em>journey</em><br />starts today.</h1>
               <p>You are at Level {d.level}, and that is exactly where every topper started. Take one 10-minute step and we will build a study plan around what you already know.</p>
               <div className="hm-cta"><button className="hm-btn solid" disabled={busy} onClick={startDiagnostic}>{busy ? "Preparing…" : <>Take 10-minute diagnostic <Icon.arrowRight size={16} /></>}</button></div>
               <small>Free · No negative marking · Nobody sees your score</small>
@@ -169,36 +227,34 @@ export default function Today() {
               <div className="ring"><img src="/badges/rookie.png" alt="" width="64" height="64" /></div>
               <div className="grow"><b>First badge: Rookie</b><i className="bar"><u style={{ width: `${Math.min(100, (d.points / (d.levelNext || 400)) * 100)}%` }} /></i><span>{d.points} / {d.levelNext || d.points} pts to Level {nextName}</span></div>
             </section>
-            <h2 className="section-title">Your first 3 steps</h2>
-            <p className="muted" style={{ color: "var(--gray-500)", fontSize: 14 }}>Do these this week and you will reach Level {nextName}.</p>
-        <div className="steps">
-          <div className={`step ${d.diagnosticDone ? "done" : ""}`}>
-            <span className="num">{d.diagnosticDone ? <Icon.check size={14} /> : 1}</span>
-            <span className="reward">+50 pts</span>
-            <h3>Take the 10-minute diagnostic</h3>
-            <p>20 quick questions. We draw your first "Where I stand" map.</p>
-            {d.diagnosticDone
-              ? <p className="locked" style={{ color: "var(--green-600)", fontWeight: 600 }}>Completed</p>
-              : <button className="btn" style={{ width: "100%", marginTop: 16, height: 44 }} disabled={busy} onClick={startDiagnostic}>Start now</button>}
-          </div>
-          <div className={`step ${d.diagnosticDone ? "" : "dim"} ${d.clearedEasy ? "done" : ""}`}>
-            <span className="num">{d.clearedEasy ? <Icon.check size={14} /> : 2}</span>
-            <span className="reward">+20 pts · Rookie badge</span>
-            <h3>Clear the Easy stage of one topic</h3>
-            <p>Pick any topic, or one we suggest from your diagnostic.</p>
-            {d.diagnosticDone && !d.clearedEasy
-              ? <Link className="btn" to="/practice" style={{ width: "100%", marginTop: 16, height: 44 }}>Start practice</Link>
-              : d.clearedEasy ? <p className="locked" style={{ color: "var(--green-600)", fontWeight: 600 }}>Completed</p>
-              : <p className="locked">🔒 Locked until step 1</p>}
-          </div>
-          <div className={`step ${d.diagnosticDone ? "" : "dim"} ${d.streak3 ? "done" : ""}`}>
-            <span className="num">{d.streak3 ? <Icon.check size={14} /> : 3}</span>
-            <span className="reward">+30 pts · 🔥 streak</span>
-            <h3>Practise 3 days in a row</h3>
-            <p>Even 10 minutes a day starts your streak.</p>
-            {d.streak3 ? <p className="locked" style={{ color: "var(--green-600)", fontWeight: 600 }}>Completed · {d.streak} days</p> : d.diagnosticDone ? <p className="locked">🔥 {d.streak} / 3 days</p> : <p className="locked">🔒 Locked until step 1</p>}
-          </div>
-        </div>
+            <h2 className="hm-h">Your first 3 steps</h2>
+            <p className="hm-sub">Do these this week and you will reach Level {nextName}.</p>
+            <div className="hm-steps hm-first-steps">
+              <div className={`hs ${d.diagnosticDone ? "done" : "on"}`}>
+                <div className="top"><span className="n">{d.diagnosticDone ? <Icon.check size={16} /> : 1}</span><u /><span className="chip">+50 pts</span></div>
+                <h3>Take the 10-minute diagnostic</h3>
+                <p>20 quick questions. We draw your first "Where I stand" map.</p>
+                {d.diagnosticDone
+                  ? <span className="hs-state ok">Completed</span>
+                  : <button type="button" className="hs-cta" disabled={busy} onClick={startDiagnostic}>{busy ? "Preparing…" : "Start now"}</button>}
+              </div>
+              <div className={`hs ${d.diagnosticDone ? "" : "dim"} ${d.clearedEasy ? "done" : d.diagnosticDone ? "on" : ""}`}>
+                <div className="top"><span className="n">{d.clearedEasy ? <Icon.check size={16} /> : 2}</span><u /><span className="chip">+20 pts · Rookie badge</span></div>
+                <h3>Clear the Easy stage of one topic</h3>
+                <p>Pick any topic, or one we suggest from your diagnostic.</p>
+                {d.clearedEasy ? <span className="hs-state ok">Completed</span>
+                  : d.diagnosticDone ? <Link className="hs-cta" to="/practice">Start practice</Link>
+                  : <span className="hs-state">🔒 Locked until step 1</span>}
+              </div>
+              <div className={`hs ${d.diagnosticDone ? "" : "dim"} ${d.streak3 ? "done" : ""}`}>
+                <div className="top"><span className="n">{d.streak3 ? <Icon.check size={16} /> : 3}</span><u /><span className="chip warm">+30 pts · 🔥 streak</span></div>
+                <h3>Practise 3 days in a row</h3>
+                <p>Even 10 minutes a day starts your streak.</p>
+                {d.streak3 ? <span className="hs-state ok">Completed · {d.streak} days</span>
+                  : d.diagnosticDone ? <span className="hs-state">🔥 {d.streak} / 3 days</span>
+                  : <span className="hs-state">🔒 Locked until step 1</span>}
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -230,7 +286,7 @@ export default function Today() {
         <div className="container" style={{ paddingTop: 0, paddingBottom: 0 }}>
           <h2 className="h-center">Mistake Banks help learners review, reflect, and <em>improve</em>.</h2>
           <p className="s-center">Mistake Banks collect questions learners struggle with, so they can revisit weak areas, build confidence, and reinforce learning over time.</p>
-          <div className="tl">
+          <div className="tl" ref={tlRef}>
             <i className="rail" aria-hidden="true" />
             {[
               ["Review", "01", "Review highlights where you need more practice so you can focus on weak areas, track progress, identify gaps, and build confidence as tricky concepts become clearer.", "/home/review.png", false],

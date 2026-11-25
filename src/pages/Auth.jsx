@@ -62,6 +62,14 @@ export function Login() {
   const { user, google } = useAuth();
   const nav = useNavigate();
   const [err, setErr] = useState("");
+  const [scale, setScale] = useState(1);
+  // Scale the illustration so the whole login page fits in one screen, no scrolling
+  useEffect(() => {
+    const fit = () => setScale(Math.min(1, Math.max(0.42, (window.innerHeight - 330) / 560)));
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
   if (user) return <Navigate to="/" replace />;
 
   // One Google entry point for both sign-in and sign-up; new learners are sent on to onboarding for the remaining details
@@ -72,7 +80,7 @@ export function Login() {
   };
 
   return (
-    <div className="login-split">
+    <div className="login-split" style={{ "--s": scale }}>
       <section className="login-art" aria-hidden="true">
         <span className="eyebrow-chip">AI exam prep for every aspirant</span>
         <h2>Practice smarter.<br />Crack your exam.</h2>

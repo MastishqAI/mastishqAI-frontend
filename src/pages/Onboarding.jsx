@@ -1,4 +1,3 @@
-import { INDIA, STATES } from "../data/india.js";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
@@ -24,9 +23,9 @@ const Pw = ({ label, value, onChange }) => {
   const [show, setShow] = useState(false);
   return (
     <div className="field">
-      <label>{label}</label>
+      <label>{label} <span className="req" aria-hidden="true">*</span></label>
       <div className="input-wrap">
-        <input className="input fill" type={show ? "text" : "password"} autoComplete="new-password" value={value} onChange={onChange} />
+        <input className="input fill" type={show ? "text" : "password"} autoComplete="new-password" value={value} onChange={onChange} required />
         <button type="button" className="icon-btn" onClick={() => setShow(!show)} aria-label="Toggle password">
           {show ? <Icon.eye size={18} /> : <Icon.eyeOff size={18} />}
         </button>
@@ -54,7 +53,18 @@ export default function Onboarding() {
   const [picked, setPicked] = useState([]);
   const [custom, setCustom] = useState("");
   const [finishing, setFinishing] = useState(false);
-  const [otherDistrict, setOtherDistrict] = useState(false);
+  const [pinState, setPinState] = useState({ busy: false, err: "" });   // pincode lookup
+  // state and district are filled from the pincode, never typed
+  useEffect(() => {
+    setErr("");   // a stale error from an earlier try must not stay on screen
+    if (b.pincode.length !== 6) { setPinState({ busy: false, err: "" }); if (b.state || b.district) setB((x) => ({ ...x, state: "", district: "" })); return; }
+    let live = true;
+    setPinState({ busy: true, err: "" });
+    api.get(`/onboarding/pincode/${b.pincode}`)
+      .then((r) => { if (live) { setErr(""); setB((x) => ({ ...x, state: r.state, district: r.district })); setPinState({ busy: false, err: "" }); } })
+      .catch((e) => { if (live) { setB((x) => ({ ...x, state: "", district: "" })); setPinState({ busy: false, err: e.message }); } });
+    return () => { live = false; };
+  }, [b.pincode]);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [step]);   // a shorter step must not stay scrolled down (looked like Back did nothing)
 
   useEffect(() => {
@@ -70,13 +80,23 @@ export default function Onboarding() {
   };
 
   const step1 = wrap(async () => {
+    if (a.phone.length !== 10) throw new Error("Mobile number must be exactly 10 digits.");
     if (a.password.length < 6) throw new Error("Password must be at least 6 characters.");
     if (a.password !== a.confirm) throw new Error("Passwords don't match.");
     await register({ firstName: a.firstName, lastName: a.lastName, email: a.email, password: a.password, phone: a.phone ? `+91 ${a.phone}` : "" });
     setStep(2);
   });
-  const step2 = wrap(async () => { await api.post("/onboarding/academic", b); setStep(3); });
-  const step3 = wrap(async () => { await api.post("/onboarding/goals", c); setStep(4); });
+  const step2 = wrap(async () => {
+    if (!/^\d{6}$/.test(b.pincode)) throw new Error("Please enter your 6-digit pin code.");
+    if (!b.state || !b.district) throw new Error(pinState.err || "Please wait while we look up your pin code.");
+    await api.post("/onboarding/academic", { school: b.school, className: b.className, pincode: b.pincode }); setStep(3);
+  });
+  const step3 = wrap(async () => {
+    if (!c.goalText.trim()) throw new Error("Please describe your goal.");
+    if (!c.goalName) throw new Error("Please pick one of the goal suggestions.");
+    if (!(parseInt(c.dailyGoal, 10) >= 1)) throw new Error("Please enter how many questions you want to practise each day.");
+    await api.post("/onboarding/goals", c); setStep(4);
+  });
   const step4 = wrap(async () => {
     await api.post("/onboarding/subjects", { subjects: picked });
     setFinishing(true);
@@ -96,17 +116,17 @@ export default function Onboarding() {
         <p className="desc">Please provide accurate details to personalize your experience.</p>
         <form onSubmit={step1}>
           <div className="two">
-            <div className="field"><label>First Name</label><input className="input fill" value={a.firstName} onChange={(e) => setA({ ...a, firstName: e.target.value })} required /></div>
-            <div className="field"><label>Last Name</label><input className="input fill" value={a.lastName} onChange={(e) => setA({ ...a, lastName: e.target.value })} /></div>
+            <div className="field"><label>First Name <span className="req" aria-hidden="true">*</span></label><input className="input fill" value={a.firstName} onChange={(e) => setA({ ...a, firstName: e.target.value })} required /></div>
+            <div className="field"><label>Last Name <span className="req" aria-hidden="true">*</span></label><input className="input fill" value={a.lastName} onChange={(e) => setA({ ...a, lastName: e.target.value })} required /></div>
           </div>
-          <div className="field"><label>Email Address</label><input className="input fill" type="email" value={a.email} onChange={(e) => setA({ ...a, email: e.target.value })} required /></div>
+          <div className="field"><label>Email Address <span className="req" aria-hidden="true">*</span></label><input className="input fill" type="email" value={a.email} onChange={(e) => setA({ ...a, email: e.target.value })} required /></div>
           <Pw label="Create a new Password" value={a.password} onChange={(e) => setA({ ...a, password: e.target.value })} />
           <Pw label="Confirm Password" value={a.confirm} onChange={(e) => setA({ ...a, confirm: e.target.value })} />
           <div className="field">
-            <label>Mobile Number</label>
+            <label>Mobile Number <span className="req" aria-hidden="true">*</span></label>
             <div className="phone">
               <div className="input fill cc">+91 <Icon.chevDown size={16} /></div>
-              <input className="input" placeholder="9876543210" inputMode="numeric" value={a.phone} onChange={(e) => setA({ ...a, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} />
+              <input className="input" placeholder="9876543210" inputMode="numeric" maxLength={10} value={a.phone} onChange={(e) => setA({ ...a, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} required />
             </div>
           </div>
           {err && <div className="error">{err}</div>}
@@ -122,29 +142,14 @@ export default function Onboarding() {
         <h1 style={{ marginTop: 28 }}>Academic Details</h1>
         <p className="desc">Please provide accurate details to personalize your experience.</p>
         <form onSubmit={step2}>
-          <div className="field"><label>School Or College Name</label><input className="input" placeholder="e.g. Delhi Public School / IIT Bombay" value={b.school} onChange={(e) => setB({ ...b, school: e.target.value })} required /></div>
-          <div className="field"><label>Standard Or Course</label><input className="input" placeholder="10th / B.tech Computer Science" value={b.className} onChange={(e) => setB({ ...b, className: e.target.value })} required /></div>
+          <div className="field"><label>School Or College Name <span className="req" aria-hidden="true">*</span></label><input className="input" placeholder="e.g. Delhi Public School / IIT Bombay" value={b.school} onChange={(e) => setB({ ...b, school: e.target.value })} required /></div>
+          <div className="field"><label>Standard Or Course <span className="req" aria-hidden="true">*</span></label><input className="input" placeholder="10th / B.tech Computer Science" value={b.className} onChange={(e) => setB({ ...b, className: e.target.value })} required /></div>
+          <div className="field"><label>Pin Code <span className="req" aria-hidden="true">*</span></label><input className="input" placeholder="400001" inputMode="numeric" maxLength={6} value={b.pincode} onChange={(e) => setB({ ...b, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} required aria-describedby="pin-help" />
+            <small id="pin-help" className={pinState.err ? "pin-err" : "pin-help"}>{pinState.err || (pinState.busy ? "Looking up your area…" : "State and district fill in automatically from your pin code.")}</small></div>
           <div className="two">
-            <div className="field"><label>State</label>
-              <select className="input" value={b.state} onChange={(e) => { setB({ ...b, state: e.target.value, district: "" }); setOtherDistrict(false); }} required>
-                <option value="">Select state</option>
-                {STATES.map((st) => <option key={st}>{st}</option>)}
-              </select>
-            </div>
-            <div className="field"><label>District</label>
-              {otherDistrict
-                ? <input className="input" placeholder="Type your district" value={b.district} onChange={(e) => setB({ ...b, district: e.target.value })} required autoFocus />
-                : (
-                  <select className="input" value={b.district} disabled={!b.state} required
-                    onChange={(e) => (e.target.value === "__other" ? (setOtherDistrict(true), setB({ ...b, district: "" })) : setB({ ...b, district: e.target.value }))}>
-                    <option value="">{b.state ? "Select district" : "Select state first"}</option>
-                    {(INDIA[b.state] || []).map((dn) => <option key={dn}>{dn}</option>)}
-                    {b.state && <option value="__other">My district isn't listed…</option>}
-                  </select>
-                )}
-            </div>
+            <div className="field"><label>State <span className="req" aria-hidden="true">*</span></label><input className="input" value={b.state} placeholder="Auto-filled" readOnly tabIndex={-1} aria-readonly="true" /></div>
+            <div className="field"><label>District <span className="req" aria-hidden="true">*</span></label><input className="input" value={b.district} placeholder="Auto-filled" readOnly tabIndex={-1} aria-readonly="true" /></div>
           </div>
-          <div className="field"><label>Pin Code</label><input className="input" placeholder="400001" inputMode="numeric" value={b.pincode} onChange={(e) => setB({ ...b, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></div>
           {err && <div className="error">{err}</div>}
           <button className="btn block" disabled={busy}>Next</button>
           <button type="button" className="btn block outline" style={{ marginTop: 14, color: "var(--gray-600)" }} onClick={() => (user ? backToLogin() : setStep(1))}>Back</button>
@@ -159,11 +164,11 @@ export default function Onboarding() {
         <p className="desc">We'll tailor your content and quizzes around this</p>
         <form onSubmit={step3}>
           <div className="field">
-            <label>Describe Your Goals (30 Words)</label>
-            <textarea className="input fill" rows={3} placeholder="e.g. My Goal is Prepare for my board exams ..." value={c.goalText}
+            <label>Describe Your Goals (30 Words) <span className="req" aria-hidden="true">*</span></label>
+            <textarea className="input fill" rows={3} placeholder="e.g. My Goal is Prepare for my board exams ..." value={c.goalText} required
               onChange={(e) => setC({ ...c, goalText: e.target.value.split(/\s+/).slice(0, 30).join(" ") })} />
           </div>
-          <div className="overline">Goal Suggestions</div>
+          <div className="overline">Goal Suggestions <span className="req" aria-hidden="true">*</span></div>
           <div className="goal-grid">
             {goals.map((g) => (
               <div key={g._id} className={`goal ${c.goalName === g.name ? "sel" : ""}`} onClick={() => setC({ ...c, goalName: g.name })}>
@@ -171,7 +176,7 @@ export default function Onboarding() {
               </div>
             ))}
           </div>
-          <div className="field"><label>Daily Practice Questions</label><input className="input fill" placeholder="e.g. 10 questions per day" inputMode="numeric" value={c.dailyGoal} onChange={(e) => setC({ ...c, dailyGoal: e.target.value.replace(/\D/g, "") })} /></div>
+          <div className="field"><label>Daily Practice Questions <span className="req" aria-hidden="true">*</span></label><input className="input fill" placeholder="e.g. 10 questions per day" inputMode="numeric" value={c.dailyGoal} onChange={(e) => setC({ ...c, dailyGoal: e.target.value.replace(/\D/g, "") })} required /></div>
           {err && <div className="error">{err}</div>}
           <button className="btn block" disabled={busy || !c.goalName}>Next</button>
           <button type="button" className="btn block outline" style={{ marginTop: 14, color: "var(--gray-600)" }} onClick={() => setStep(2)}>Back</button>
@@ -184,7 +189,7 @@ export default function Onboarding() {
       <h1 style={{ marginTop: 28 }}>Pick Your Subjects</h1>
       <p className="desc">Choose as many as you like</p>
       <form onSubmit={step4}>
-        <p style={{ fontSize: 12, marginBottom: 10 }}>Pick or enter your subjects <b style={{ color: "var(--blue-700)", marginLeft: 6 }}>{picked.length} Selected</b></p>
+        <p style={{ fontSize: 12, marginBottom: 10 }}>Pick or enter your subjects <span className="req" aria-hidden="true">*</span> <b style={{ color: "var(--blue-700)", marginLeft: 6 }}>{picked.length} Selected</b></p>
         <div className="tagbox">
           {picked.map((s) => <span key={s} className="chip sel" onClick={() => toggle(s)}>{s}</span>)}
           <input placeholder={picked.length ? "" : "Type a subject and press Enter"} value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={addCustom} />

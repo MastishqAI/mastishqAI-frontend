@@ -41,7 +41,7 @@ export default function Plans() {
           <ul>
             {["Daily limits on AI quizzes and Ask AI chats", "Mistake Bank and weak-spot practice", "My best, Levels, Points and Badges", "Upload your own material (daily limit)"].map((t) => <li key={t}><Check />{t}</li>)}
           </ul>
-          <Link className="pl-btn outline" to="/profile">Continue with Free</Link>
+          <Link className="pl-btn outline" to="/">Continue with Free</Link>
         </section>
 
         <section className="pl-card pro">

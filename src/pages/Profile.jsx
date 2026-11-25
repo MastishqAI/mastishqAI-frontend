@@ -69,31 +69,54 @@ const FIELDS = [
   ["district", "City"], ["state", "State"], ["pincode", "Pincode"], ["country", "Country"],
 ];
 
+const CODES = [["+91", "India"], ["+1", "USA / Canada"], ["+44", "UK"], ["+61", "Australia"], ["+971", "UAE"], ["+966", "Saudi Arabia"], ["+65", "Singapore"], ["+977", "Nepal"], ["+880", "Bangladesh"], ["+94", "Sri Lanka"], ["+92", "Pakistan"], ["+49", "Germany"], ["+33", "France"]];
+const LOCKED = ["district", "state", "country"];   // filled in from the pincode, never typed
+const splitPhone = (v = "") => {
+  const m = /^(\+\d{1,4})\s*(\d[\d\s()-]*)$/.exec(v.trim());
+  if (m) return [m[1], m[2].replace(/\D/g, "").slice(-10)];
+  return ["+91", v.replace(/\D/g, "").slice(-10)];
+};
+
 function Field({ k, label, p, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const shown = k === "exam" ? p.goalName : p[k];
+  const [code, setCode] = useState("+91");
   const start = () => {
+    if (k === "phone") { const [c, n] = splitPhone(p.phone); setCode(c); setVal(n); setErr(""); return setEditing(true); }
     if (k === "exam") return document.getElementById("pf-goals")?.scrollIntoView({ behavior: "smooth" });
     setVal(p[k] || ""); setErr(""); setEditing(true);
   };
   const save = async (e) => {
-    e.preventDefault(); setBusy(true); setErr("");
-    try { await api.patch("/profile", { [k]: val }); await onSaved(); setEditing(false); } catch (x) { setErr(x.message); } finally { setBusy(false); }
+    e.preventDefault(); setErr("");
+    if (k === "phone" && !/^\d{10}$/.test(val)) return setErr(val.length < 10 ? "Mobile number must be exactly 10 digits. You entered too few." : "Mobile number must be exactly 10 digits. You entered too many.");
+    if (k === "pincode" && !/^\d{6}$/.test(val)) return setErr("Pincode must be exactly 6 digits.");
+    setBusy(true);
+    try { await api.patch("/profile", { [k]: k === "phone" ? `${code} ${val}` : val }); await onSaved(); setEditing(false); } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   return (
     <div className="pf-field">
       <label>{label}</label>
       {editing ? (
         <form onSubmit={save}>
-          <input className="pf-input" value={val} autoFocus onChange={(e) => setVal(e.target.value)} inputMode={k === "pincode" ? "numeric" : undefined} />
+          {k === "phone" ? (
+            <div className="pf-phone">
+              <select className="pf-input pf-code" aria-label="Country code" value={code} onChange={(e) => setCode(e.target.value)}>
+                {CODES.map(([c, n]) => <option key={c} value={c} title={n}>{c}</option>)}
+              </select>
+              <input className="pf-input" value={val} autoFocus inputMode="numeric" maxLength={10} placeholder="10-digit number" aria-label="Mobile number" onChange={(e) => { setVal(e.target.value.replace(/\D/g, "").slice(0, 10)); setErr(""); }} />
+            </div>
+          ) : (
+            <input className="pf-input" value={val} autoFocus maxLength={k === "pincode" ? 6 : undefined} onChange={(e) => { setVal(k === "pincode" ? e.target.value.replace(/\D/g, "") : e.target.value); setErr(""); }} inputMode={k === "pincode" ? "numeric" : undefined} />
+          )}
+          {k === "pincode" && !err && <small className="pf-help">City, state and country will update automatically.</small>}
           {err && <small className="pf-err">{err}</small>}
           <div className="pf-btns"><button type="button" className="pf-cancel" onClick={() => setEditing(false)}>Cancel</button><button className="pf-save" disabled={busy}>{busy ? "Saving…" : "Save"}</button></div>
         </form>
       ) : (
-        <div className="pf-val"><span>{shown || <em>Not added</em>}</span><button type="button" className="pf-link" onClick={start}>Edit</button></div>
+        <div className={`pf-val${LOCKED.includes(k) ? " locked" : ""}`}><span>{shown || <em>Not added</em>}</span>{!LOCKED.includes(k) && <button type="button" className="pf-link" onClick={start}>Edit</button>}</div>
       )}
     </div>
   );

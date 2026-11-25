@@ -74,7 +74,7 @@ export default function Result() {
     <div className="container" style={{ maxWidth: 1104 }}>
       <div style={{ display: "flex", justifyContent: "center" }}><Stepper stages={stages} current={current} /></div>
       <div className="card result">
-        <span className="stagepill" style={cleared ? { background: "var(--green-100)", color: "var(--green-700)" } : { background: "var(--red-100)", color: "var(--red-700)" }}>
+        <span className="stagepill" style={cleared ? { background: "var(--green-100)", color: "var(--green-700)" } : { background: "rgba(245,11,11,.14)", color: "#B40909" }}>
           {r.stageLabel} stage · {cleared ? "Cleared" : `Attempt ${r.attemptNo}`}
         </span>
         <div className="result-head">

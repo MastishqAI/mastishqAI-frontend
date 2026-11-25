@@ -19,6 +19,12 @@ const PROMPT = {
 
 // Slide-over "Ask about this question" chat. It knows the question, the learner's answer and their past mistakes.
 export default function AskPanel({ attemptId, q, number, subject, onClose }) {
+  // lock the page behind the chat so only the chat scrolls
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import api from "../api";
 import { Icon } from "../components/icons.jsx";
+import ReportDialog from "../components/ReportDialog.jsx";
 import AskPanel from "../components/AskPanel.jsx";
 
 const TAGS = ["Concept", "Calculation", "Misread", "Guess", "Time"];
@@ -48,6 +49,7 @@ export default function Review() {
   const [err, setErr] = useState("");
   const [idx, setIdx] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [panel, setPanel] = useState(false);
   const [note, setNote] = useState("");
 
@@ -108,7 +110,7 @@ export default function Review() {
               ? <button className="btn outline" style={{ height: 46 }} onClick={() => { setIdx(nextIdx); setSaved(false); setPanel(false); setNote(""); }}>{only ? "Next wrong question" : "Next question"} →</button>
               : <button className="btn outline" style={{ height: 46 }} onClick={() => nav(`/result/${attemptId}`)}>Back to result</button>}
             <span className="grow" />
-            <button className="flag" onClick={async () => { try { await api.post(`/practice/attempts/${attemptId}/questions/${q.id}/feedback`, { kind: "report_question" }); setNote("Thanks — this question has been flagged for review."); } catch (e) { setNote(e.message); } }}><Icon.flag size={14} /> Report this question</button>
+            <button className="flag" onClick={() => setReporting(true)}><Icon.flag size={14} /> Report this question</button>
           </div>
           {note && <div className="ok" style={{ marginTop: 14 }}>{note}</div>}
           <StepsSection attemptId={attemptId} qid={q.id} />
@@ -130,7 +132,7 @@ export default function Review() {
               <h4>Why did you miss it?<span style={{ color: "var(--red-600)" }}>*</span></h4>
               <p style={{ fontSize: 12, color: "var(--gray-500)", marginTop: 8 }}>Tag the mistake so we can give you the right practice.</p>
               <div className="tags">{TAGS.map((t) => <button key={t} className={`tag-btn ${q.tags.includes(t) ? "sel" : ""}`} onClick={() => toggleTag(t)}>{t}</button>)}</div>
-              <div className="ok" style={{ background: "var(--green-50)", color: "var(--green-700)", fontWeight: 600, fontSize: 12, marginBottom: 0 }}>✓ Saved to your Mistake Bank</div>
+              {q.tags.length > 0 && <div className="ok" style={{ background: "var(--green-50)", color: "var(--green-700)", fontWeight: 600, fontSize: 12, marginBottom: 0 }}>✓ Saved to your Mistake Bank</div>}
             </div>
           )}
 
@@ -145,6 +147,11 @@ export default function Review() {
           )}
         </aside>
       </div>
+      {reporting && <ReportDialog onClose={() => setReporting(false)} onSubmit={async (reason, text) => {
+        try { await api.post(`/practice/attempts/${attemptId}/questions/${q.id}/feedback`, { kind: "report_question", note: `${reason}${text ? `: ${text}` : ""}` }); setNote("Thanks — this question has been flagged for review."); }
+        catch (e) { setNote(e.message); }
+        setReporting(false);
+      }} />}
       {panel && <AskPanel attemptId={attemptId} q={q} number={idx + 1} subject={a.subject} onClose={() => setPanel(false)} />}
     </div>
   );

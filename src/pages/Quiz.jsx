@@ -4,8 +4,8 @@ import api from "../api";
 import { useGet } from "../hooks";
 import { Stepper } from "../components/ui.jsx";
 import { Icon } from "../components/icons.jsx";
+import ReportDialog from "../components/ReportDialog.jsx";
 
-const REPORT_REASONS = ["Incorrect answer", "Unclear question", "Inappropriate content", "Something else"];
 
 // Per-question deadlines live in sessionStorage so jumping around the navigator or refreshing can't reset the clock
 const store = (attemptId) => {
@@ -123,8 +123,8 @@ export default function Quiz() {
     try { await postAnswer(); } catch (e) { setErr(e.message); } finally { setBusy(false); lock.current = false; }
   };
 
-  const sendReport = async () => {
-    const note = `${report.reason}${report.note.trim() ? `: ${report.note.trim()}` : ""}`;
+  const sendReport = async (reason, text) => {
+    const note = `${reason}${text ? `: ${text}` : ""}`;
     try { await api.post(`/practice/attempts/${attemptId}/questions/${q.id}/feedback`, { kind: "report_question", note }); setReported(q.id); setReport(null); }
     catch (e) { setErr(e.message); setReport(null); }
   };
@@ -164,7 +164,7 @@ export default function Quiz() {
             {!isDiag && <Stepper stages={stages} current={a.stage} />}
           </div>
 
-          {!q.answered && !timedOut && left > 0 && left <= 10 && <div className="notice warn" role="status"><b>Less than {left <= 5 ? "5" : "10"} seconds left</b> on this question. {unanswered} question{unanswered === 1 ? "" : "s"} still unanswered.</div>}
+          {!q.answered && !timedOut && left > 0 && left <= 10 && <div className="lowtime" role="status"><Icon.clock size={18} /><div><b>Less than {left <= 5 ? "5" : "10"} seconds left</b><span>{unanswered} question{unanswered === 1 ? " is" : "s are"} still unanswered. Your selected answers are saved automatically.</span></div></div>}
           {notice && <div className="notice" role="status">{notice} <button type="button" className="link" onClick={() => setNotice("")} aria-label="Dismiss message">Dismiss</button></div>}
 
           <div className="card q-card">
@@ -182,12 +182,12 @@ export default function Quiz() {
             {timedOut && <div className="error">Time ran out for this question, so it counts as wrong.</div>}
             {err && <div className="error">{err}</div>}
             <div className="q-foot">
-              <button className="flag" type="button" disabled={reported === q.id} onClick={() => setReport({ reason: REPORT_REASONS[0], note: "" })}><Icon.flag size={14} /> {reported === q.id ? "Reported ✓" : "Report this question"}</button>
+              <button className="flag" type="button" disabled={reported === q.id} onClick={() => setReport(true)}><Icon.flag size={14} /> {reported === q.id ? "Reported ✓" : "Report this question"}</button>
               {q.answered && <span className="saved">✓ Saved</span>}
               <span className="grow" />
               {q.answered
-                ? <button className="btn" style={{ height: 48, minWidth: 160, boxShadow: "var(--shadow-btn)" }} disabled={busy} onClick={next}>{idx < total - 1 ? "Next question" : "Finish stage"}</button>
-                : <button className="btn" style={{ height: 48, minWidth: 160, boxShadow: "var(--shadow-btn)" }} disabled={sel === null || busy || timedOut} onClick={submit}>{busy ? "Submitting…" : "Submit answer"}</button>}
+                ? <button className="btn q-submit" disabled={busy} onClick={next}>{idx < total - 1 ? "Next question" : "Finish stage"}</button>
+                : <button className="btn q-submit" disabled={sel === null || busy || timedOut} onClick={submit}>{busy ? "Submitting…" : "Submit answer"}</button>}
             </div>
           </div>
         </div>
@@ -211,7 +211,7 @@ export default function Quiz() {
                 );
               })}
             </div>
-            <div className="legend"><span><i style={{ background: "var(--green-400)" }} />Correct</span><span><i style={{ background: "#F25C5C" }} />Wrong</span><span><i style={{ background: "var(--gray-300)" }} />Skipped</span></div>
+            <div className="legend"><span><i style={{ background: "var(--green-400)" }} />Correct</span><span><i style={{ background: "#F25C5C" }} />Wrong</span></div>
           </div>
           <button className="end-btn" disabled={busy} onClick={endQuiz}>End quiz &amp; save progress</button>
         </aside>
@@ -230,26 +230,7 @@ export default function Quiz() {
         </div>
       )}
 
-      {report && (
-        <div className="modal-bg" role="dialog" aria-modal="true" aria-labelledby="report-title">
-          <div className="modal">
-            <h3 id="report-title">Report this question</h3>
-            <fieldset className="reasons">
-              <legend>What's wrong with it?</legend>
-              {REPORT_REASONS.map((r) => (
-                <label key={r}><input type="radio" name="reason" checked={report.reason === r} onChange={() => setReport({ ...report, reason: r })} /> {r}</label>
-              ))}
-            </fieldset>
-            <label className="lbl" htmlFor="report-note">Details (optional)</label>
-            <textarea id="report-note" className="pr-area" style={{ height: 96 }} maxLength={300} value={report.note} onChange={(e) => setReport({ ...report, note: e.target.value })} placeholder="Tell us what looks wrong" />
-            <div className="char-count">{report.note.length}/300</div>
-            <div className="modal-actions">
-              <button type="button" className="btn outline" onClick={() => setReport(null)}>Cancel</button>
-              <button type="button" className="btn" onClick={sendReport}>Submit report</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {report && <ReportDialog onSubmit={sendReport} onClose={() => setReport(null)} />}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useGet } from "../hooks";
 import { Icon } from "../components/icons.jsx";
 import { buyPro } from "../upgrade.js";
 import { prepareImage } from "../components/Attachments.jsx";
-import { LogoMark } from "../components/ui.jsx";
+import { Avatar, LogoMark } from "../components/ui.jsx";
 import MoreMenu from "../components/MoreMenu.jsx";
 
 const SUGGEST = ["Explain Newton's Laws of Motion", "Solve this algebra quadratic equation", "Summarize cellular respiration in biology", "Help me understand photosynthesis step-by-step"];
@@ -94,6 +94,9 @@ export default function Ask() {
   const fresh = () => { setConvoId(null); setTitle(""); setMsgs([]); setErr(""); setFiles([]); setChatFiles([]); };
 
   // Voice: the browser turns speech into text (Chrome, Edge, Safari). The words appear in the box for you to check before sending.
+  const voiceBase = useRef("");
+  const stopVoice = () => recog.current?.stop();
+  const cancelVoice = () => { recog.current?.abort?.(); recog.current?.stop(); setText(voiceBase.current); setListening(false); };
   const voice = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return setErr("Voice input isn't supported in this browser. Try Chrome, Edge or Safari.");
@@ -101,6 +104,7 @@ export default function Ask() {
     const r = new SR();
     r.lang = "en-IN"; r.interimResults = true; r.continuous = false;
     const base = text.trim() ? `${text.trim()} ` : "";
+    voiceBase.current = text;
     r.onresult = (e) => setText(base + Array.from(e.results).map((x) => x[0].transcript).join(""));
     r.onerror = (e) => { setListening(false); if (e.error === "not-allowed" || e.error === "service-not-allowed") setErr("Microphone access is blocked. Allow it in your browser's site settings and try again."); else if (e.error !== "no-speech" && e.error !== "aborted") setErr("Couldn't hear you. Please try again."); };
     r.onend = () => setListening(false);
@@ -139,12 +143,12 @@ export default function Ask() {
   return (
     <div className="ask">
       <aside className={`side ${drawer ? "open" : ""}`} onClick={(e) => { if (e.target.closest("a, .new-chat")) setDrawer(false); }}>
-        <button className="new-chat" onClick={fresh}><Icon.plus size={16} style={{ verticalAlign: -3, marginRight: 6 }} />New chat</button>
+        <button className="new-chat" onClick={fresh}><Icon.plus size={16} />New chat</button>
         <div className="sbox"><Icon.search size={16} style={{ color: "var(--gray-400)" }} /><input placeholder="Search chats" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <div className="convos">
           {g.today.length > 0 && <h6>Today</h6>}
           {g.today.map((c) => <a key={c._id} className={c._id === convoId ? "on" : ""} onClick={() => open(c._id)}>{c.title}</a>)}
-          {g.prev.length > 0 && <h6>Previous 7 days</h6>}
+          {g.prev.length > 0 && <>{g.today.length > 0 && <hr className="cv-div" />}<h6>Previous 7 days</h6></>}
           {g.prev.map((c) => <a key={c._id} className={c._id === convoId ? "on" : ""} onClick={() => open(c._id)}>{c.title}</a>)}
           {!filtered.length && <p style={{ fontSize: 12, color: "var(--gray-500)", marginTop: 16 }}>No chats yet.</p>}
         </div>
@@ -155,10 +159,22 @@ export default function Ask() {
           <button className="btn" disabled={paying || (payCfg && !payCfg.enabled)} onClick={() => nav("/plans")}>{paying ? "Opening payment…" : isPro ? "Extend Pro →" : "Upgrade now →"}</button>
           <em>{note || (payCfg && !payCfg.enabled ? "Payments are not available yet." : "One-time payment. No auto-renewal.")}</em>
         </div>
-        <div className="me-row"><span className="avatar" style={{ width: 40, height: 40 }}>{initials}</span><div><b>{user?.name}</b><small>{(user?.goalName || "Learner").split(" ")[0]}</small></div><div ref={menuRef} className="me-more"><button type="button" aria-label="Account options" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>•••</button>
+        <div className="me-row"><Avatar user={user} size={36} /><div><b>{(user?.name || "").replace(/\b\w/g, (c) => c.toUpperCase())}</b><small>{(user?.goalName || "Learner").split(" ")[0]}</small></div><div ref={menuRef} className="me-more"><button type="button" aria-label="Account options" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>•••</button>
           {menu && <MoreMenu email={user?.email} onClose={() => setMenu(false)} />}</div></div>
       </aside>
 
+      {listening && (
+        <div className="modal-bg" role="dialog" aria-modal="true" aria-labelledby="voice-title">
+          <div className="voice-card">
+            <div className="vc-head"><span><Icon.mic size={14} />Voice assistant</span><button type="button" aria-label="Close voice assistant" onClick={cancelVoice}><Icon.x size={22} /></button></div>
+            <div className="vc-orb"><span><Icon.mic size={30} /></span></div>
+            <h3 id="voice-title">Listening...</h3>
+            <p>Go ahead, I'm listening to your request</p>
+            <div className="vc-wave" aria-hidden="true">{[12, 22, 16, 34, 48, 26, 40, 20, 30, 14, 8].map((h, i) => <i key={i} style={{ height: h, animationDelay: `${i * 0.09}s` }} />)}</div>
+            <button type="button" className="vc-stop" onClick={stopVoice}><i />Stop Listening</button>
+          </div>
+        </div>
+      )}
       {drawer && <div className="side-back" onClick={() => setDrawer(false)} aria-hidden="true" />}
       <section className="chat-main">
         <button type="button" className="ask-menu" onClick={() => setDrawer(true)} aria-label="Open your chats"><Icon.menu size={16} /> Chats</button>

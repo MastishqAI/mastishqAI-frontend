@@ -44,7 +44,8 @@ export default function Practice() {
 
   const generate = async () => {
     if (busy) return;
-    if (!topic.trim() && !files.length) return setErr("Please enter a topic name or add a file.");
+    if (!topic.trim()) return setErr("Please enter a topic name.");
+    if (!desc.trim()) return setErr("Please add a description.");
     setErr(""); setBusy(true);
     try {
       const p = await api.post("/practice", { topic, description: desc, secondsPerQuestion: secs, materialIds: files.map((f) => f.id) });
@@ -85,8 +86,8 @@ export default function Practice() {
       <div className="practice-grid">
         <div className="card main">
           <h2>What do you want to practise?</h2>
-          <label className="lbl first" htmlFor="pr-topic">Topic Name</label>
-          <input id="pr-topic" className="pr-input" maxLength={200} value={topic} placeholder={files.length ? "Optional: we'll use your file's name" : "e.g. Fundamental Rights (Articles 12–35)"} onChange={(e) => setTopic(e.target.value)} />
+          <label className="lbl first" htmlFor="pr-topic">Topic Name <span className="req" aria-hidden="true">*</span></label>
+          <input id="pr-topic" className="pr-input" required aria-required="true" maxLength={200} value={topic} placeholder="e.g. Fundamental Rights (Articles 12–35)" onChange={(e) => setTopic(e.target.value)} />
           {found.length > 0 ? (
             <div className="recs">
               <span>Found in your material</span>
@@ -98,8 +99,8 @@ export default function Practice() {
               {recs.data.topics.map((t) => <button key={t} onClick={() => setTopic(t)}>{t}</button>)}
             </div>
           )}
-          <label className="lbl" htmlFor="pr-desc">Description</label>
-          <textarea id="pr-desc" className="pr-area" maxLength={500} placeholder={scanning ? "Reading your material to suggest a description…" : "e.g. Writs, Article 21 cases"} value={desc} onChange={(e) => setDesc(e.target.value)} />
+          <label className="lbl" htmlFor="pr-desc">Description <span className="req" aria-hidden="true">*</span></label>
+          <textarea id="pr-desc" className="pr-area" required aria-required="true" maxLength={500} placeholder={scanning ? "Reading your material to suggest a description…" : "e.g. Writs, Article 21 cases"} value={desc} onChange={(e) => setDesc(e.target.value)} />
           <div className="or-line">{scanning ? `your material · ${files.length + scanning} file${files.length + scanning > 1 ? "s" : ""}` : files.length ? `your material · ${files.length} file${files.length > 1 ? "s" : ""} scanned` : "or use your own material"}</div>
           <Attachments files={files} setFiles={setFiles} onError={setErr} onScanning={setScanning} />
         </div>
@@ -118,8 +119,8 @@ export default function Practice() {
           </div>
           <p style={{ fontSize: 12, color: "var(--gray-500)", margin: "16px 0 14px" }}>{scanning > 0 ? `Scanning ${scanning} file${scanning > 1 ? "s" : ""}. This takes a few seconds.` : files.length ? `Quiz built from your ${files.length} file${files.length > 1 ? "s" : ""} · Clear a stage at 70%. Every answer autosaves.` : "Clear a stage at 70%. Every answer autosaves."}</p>
           {err && <div className="error" role="alert">{err}</div>}
-          <button className="btn block" disabled={busy || scanning > 0 || (!topic.trim() && !files.length)} onClick={generate}>{busy ? <><span className="spinner" aria-hidden="true" />Generating quiz…</> : scanning > 0 ? "Scanning material…" : files.length ? "Generate quiz from my files" : "Generate quiz"}</button>
-          {!busy && !topic.trim() && !files.length && <p className="hint">Enter a topic or add a file to continue.</p>}
+          <button className="btn block" disabled={busy || scanning > 0 || !topic.trim() || !desc.trim()} onClick={generate}>{busy ? <><span className="spinner" aria-hidden="true" />Generating quiz…</> : scanning > 0 ? "Scanning material…" : files.length ? "Generate quiz from my files" : "Generate quiz"}</button>
+          {!busy && (!topic.trim() || !desc.trim()) && <p className="hint">Enter a topic name and a description to continue.</p>}
           {busy && <p style={{ fontSize: 12, color: "var(--gray-500)", textAlign: "center", marginTop: 10 }}>Building your questions with AI — this takes a few seconds.</p>}
         </div>
       </div>
