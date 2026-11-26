@@ -304,7 +304,10 @@ function Invite({ p }) {
           <h2 className="pf-h2">Invite friends</h2>
           <p className="pf-sub" style={{ margin: 0 }}>You both get {p.invite.reward} extra open chats when a friend finishes their first level.{p.invite.bonusChats > 0 && <> You have <b>{p.invite.bonusChats}</b> bonus chats left.</>}</p>
         </div>
-        <button type="button" className="pf-outline" onClick={share}>Share invite link</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link className="pf-outline" to="/referrals" style={{ display: "inline-flex", alignItems: "center" }}>View referrals</Link>
+          <button type="button" className="pf-outline" onClick={share}>Share invite link</button>
+        </div>
       </div>
       {note && <p className="pf-help" style={{ marginTop: 8, wordBreak: "break-all" }}>{note}</p>}
     </section>

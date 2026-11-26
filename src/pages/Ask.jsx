@@ -155,7 +155,7 @@ export default function Ask() {
         <div className="upgrade">
           <div className="t">Upgrade Plan <span className="pro">{isPro ? "Active" : "Pro"}</span></div>
           <p>{isPro ? `Pro is active until ${new Date(user.planExpiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. Pay again to add ${payCfg?.days || 30} more days.` : "Unlock advanced features, unlimited weak-spot sets and solution PDFs."}</p>
-          <div className="price">₹{payCfg?.amount ?? 49} <small>/ {payCfg?.days || 30} days</small></div>
+          <div className="price">₹{payCfg?.amount ?? 499} <s className="was">₹{payCfg?.listAmount ?? 999}</s> <small>/ {payCfg?.days || 30} days</small></div>
           <button className="btn" disabled={paying || (payCfg && !payCfg.enabled)} onClick={() => nav("/plans")}>{paying ? "Opening payment…" : isPro ? "Extend Pro →" : "Upgrade now →"}</button>
           <em>{note || (payCfg && !payCfg.enabled ? "Payments are not available yet." : "One-time payment. No auto-renewal.")}</em>
         </div>

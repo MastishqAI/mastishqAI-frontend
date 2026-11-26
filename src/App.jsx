@@ -17,6 +17,7 @@ import Legal from "./pages/Legal.jsx";
 import Support from "./pages/Support.jsx";
 import Profile from "./pages/Profile.jsx";
 import Plans from "./pages/Plans.jsx";
+import Referrals from "./pages/Referrals.jsx";
 
 function Protected() {
   const { user, loading } = useAuth();
@@ -46,7 +47,7 @@ function NotFound() {
 }
 
 // Each page sets its own browser-tab title (the legal pages set theirs in Legal.jsx)
-const TITLES = { "/": "Today", "/practice": "Practice", "/mistakes": "Mistake Bank", "/progress": "Progress", "/ask": "Ask AI", "/notifications": "Notifications", "/support": "Help & Support", "/profile": "Profile", "/plans": "Plans", "/login": "Sign in", "/onboarding": "Set up your profile", "/forgot-password": "Forgot password", "/reset-password": "Reset password" };
+const TITLES = { "/": "Today", "/practice": "Practice", "/mistakes": "Mistake Bank", "/progress": "Progress", "/ask": "Ask AI", "/notifications": "Notifications", "/support": "Help & Support", "/profile": "Profile", "/plans": "Plans", "/referrals": "Referrals", "/login": "Sign in", "/onboarding": "Set up your profile", "/forgot-password": "Forgot password", "/reset-password": "Reset password" };
 function useTitle() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/support" element={<Support />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/plans" element={<Plans />} />
+        <Route path="/referrals" element={<Referrals />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

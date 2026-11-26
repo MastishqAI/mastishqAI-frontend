@@ -16,7 +16,7 @@ export default function Plans() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const isPro = user?.plan === "pro";
-  const price = cfg.data?.amount ?? 49, days = cfg.data?.days ?? 30;
+  const price = cfg.data?.amount ?? 499, listPrice = cfg.data?.listAmount ?? 999, days = cfg.data?.days ?? 30;
 
   const upgrade = async () => {
     setBusy(true); setMsg("");
@@ -46,7 +46,7 @@ export default function Plans() {
 
         <section className="pl-card pro">
           <div className="pl-top"><h2>Pro</h2>{isPro && <span className="pl-your blue">Your plan</span>}</div>
-          <p className="pl-price"><b>₹{price}</b><span>/ {days} days</span></p>
+          <p className="pl-price"><b>₹{price}</b>{listPrice > price && <s className="pl-was" aria-label={`was ₹${listPrice}`}>₹{listPrice}</s>}<span>/ {days} days</span></p>
           <p className="pl-note">One payment for {days} days. No auto-renewal.</p>
           <hr />
           <ul>
